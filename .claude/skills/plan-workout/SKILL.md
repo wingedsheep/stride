@@ -5,61 +5,51 @@ user-invocable: true
 allowed-tools: Read, Bash, Grep, Glob, Agent
 ---
 
-Plan the next training session following `docs/training-plan-process.md`.
+Plan the next training session. Save to `training/programs/next-session-YYYY-MM-DD.md`.
 
-## Step 1: Gather data (use parallel subagents)
+## Data to gather (use parallel subagents)
 
-Launch these subagents in parallel:
+1. **Training history**: Read ALL files in `training/log/`. Run `source .venv/bin/activate && python scripts/analyze.py strength`. Need the full picture — every exercise, every weight, every note about how it felt.
+2. **Recovery status**: Read recent `garmin/sleep/`, `garmin/vitals/`, and `garmin/workouts/` (last 2 weeks). How recovered is the user? What other activities have they done recently?
+3. **Goals & plans**: Read `profile/goals.md` and any active plan in `training/programs/plan-*.md`.
 
-**Agent 1 — Training history**: Read ALL files in `training/log/` (every session matters for progression tracking). Run `source .venv/bin/activate && python scripts/analyze.py strength` for lift progression. Summarize: every exercise with weights/sets/reps from recent sessions, identify plateaus, what was trained most recently and when.
+## Output structure
 
-**Agent 2 — Recovery status**: Read today's (or most recent) files from `garmin/sleep/`, `garmin/vitals/`, `garmin/steps/`. Also read the last 7 days for context. Check `garmin/workouts/` for the last 2 weeks to see all activity (running, yoga, etc. — not just strength). Summarize: sleep quality, HRV vs 7d average, body battery, days since last workout, recent activity types.
-
-**Agent 3 — Goals & profile**: Read `profile/goals.md`, `profile/preferences.md`. Read any active training plan from `training/programs/plan-*.md`. Summarize: what the user is training for, preferences, what the plan says to do next.
-
-## Step 2: Plan the session
-
-Based on recovery status:
-- **Poor recovery** (body battery < 30, HRV well below average, sleep < 5hrs): suggest a light session — reduce weights 10%, fewer sets, focus on form and mobility
-- **Moderate recovery**: maintain current weights, same volume
-- **Good recovery** (body battery > 60, HRV above average, sleep > 7hrs): push — increase weight on exercises that were completed cleanly last time
-
-Based on training history:
-- Target muscle groups not trained in the last 48+ hours
-- Progress exercises that hit all reps last time (add smallest increment)
-- Change stimulus for plateaued exercises (pause reps, drop sets, different rep scheme)
-- If it's been 10+ days since last session, don't increase weight
-
-## Step 3: Write the plan
-
-Save to `training/programs/next-session-YYYY-MM-DD.md`:
-
-```
+```markdown
 # Next Session Plan — YYYY-MM-DD
 
 ## Recovery Check
-- Last night's sleep: X hrs (score Y)
-- HRV: X ms (vs 7d avg Y)
-- Body battery: X
-- Days since last strength session: N
-- Assessment: good / moderate / poor
+<sleep, HRV, body battery, days since last session — quick assessment>
 
 ## Session Goal
-<one sentence on what to focus on>
+<one sentence: what to focus on and why>
 
 ## Warm-up
-- Roeien: 8-10 min
+<e.g. roeien 8-10 min>
 
 ## Main Work
-- Exercise: sets x reps @ weight
-  Rationale: <why this weight — reference last session>
-...
-
-## Cool-down / Extras
-<optional: stretching, yoga if grounding goal is active>
+<exercises with sets x reps @ weight, each with brief rationale referencing last session>
 
 ## Notes
-<what to watch for, when to back off>
+<anything to watch for, when to back off, optional cool-down/stretching>
 ```
 
-Reference actual numbers from previous sessions for every weight recommendation.
+## Guidance
+
+Reference actual numbers from previous sessions for every weight recommendation. Use your own reasoning, but keep these principles in mind:
+
+**Recovery-based intensity:**
+- Poor recovery (body battery < 30, HRV well below avg, sleep < 5hrs): reduce weights ~10%, fewer sets, focus on form and mobility
+- Moderate recovery: maintain current weights and volume
+- Good recovery (body battery > 60, HRV above avg, sleep > 7hrs): push — add weight or volume
+
+**Progression logic:**
+- Last session hit all prescribed reps cleanly → increase weight (2.5kg machines, 1kg dumbbells)
+- Last session failed reps on the last set → repeat same weight
+- Exercise plateaued for 3+ sessions → change stimulus (pause reps, drop sets, different rep range, more volume)
+- 10+ days since last session → don't increase, focus on re-establishing the movement
+
+**Other considerations:**
+- Avoid training the same muscle groups within 48 hours
+- Consider all goals — not just strength. If the user hasn't done yoga/running in a while and those are goals, mention it
+- Notes from previous sessions matter — "zwakke dag" or "net gehaald" are signals about readiness

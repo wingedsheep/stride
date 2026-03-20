@@ -6,48 +6,36 @@ argument-hint: "[optional: constraints like 'quick', 'fish', 'no pasta']"
 allowed-tools: Read, Glob, Agent
 ---
 
-Suggest dinner ideas following `docs/food-tracking-process.md`.
+Suggest dinner ideas. See `docs/food-tracking-process.md` for full dietary context.
 
 Arguments: $ARGUMENTS
 
-## Step 1: Gather context (use a subagent)
+## Data to gather
 
-Launch a subagent to gather:
-- Read `profile/nutrition.md` for dietary preferences, restrictions, targets
-- Read all files in `food/` from the last 14 days to see recent meals
-- Read today's `journal/YYYY-MM-DD.md` if it exists (might mention mood/energy)
-- Read today's `garmin/vitals/YYYY-MM-DD.md` for body battery (suggests effort level)
-- Summarize: what was eaten recently, any patterns (too much pasta? not enough fish?), energy level today
+- Read `profile/nutrition.md` for preferences and restrictions
+- Read recent `food/` entries (last 7-14 days) to avoid repetition and spot patterns
+- Optionally check today's vitals/journal for energy level context
 
-## Step 2: Suggest recipes
+## Key constraints
 
-Based on the context and any $ARGUMENTS constraints:
+- Slightly lactose intolerant, chickpeas cause gas
+- Prefers fish over meat, wants to reduce meat frequency
+- Mediterranean and Asian cuisines preferred, but open to everything
+- Aims for ~200g vegetables per meal
+- Fallback meal: wrap + Italian veggies + canned tuna (don't suggest this unless they ask for something very quick)
 
-### Rules
-- **Don't repeat** meals from the last 3-4 days
-- **Respect restrictions**: slightly lactose intolerant, chickpeas cause gas
-- **Prioritize fish** as protein source, then plant-based, then meat (user wants to reduce meat)
-- **Mediterranean or Asian** flavors preferred
-- **~200g vegetables** per serving
-- If body battery is low or it's a weeknight, lean toward quick options
-- If $ARGUMENTS mentions "quick" — only suggest 15-min meals
+## Suggestions
 
-### Output format
+Give 2-3 options at different effort levels (quick ~15min / medium ~30min / weekend ~45min+). Each should be a real, specific, cookable recipe with enough detail to actually make it — not "some kind of stir fry."
 
-Give 2-3 options:
+Vary the suggestions: different cuisines, different proteins, different base (rice/noodles/bread/potato). Don't repeat what was eaten in the last few days.
 
-**Quick (15 min):** Recipe name
-Brief description. Key ingredients. Why this works tonight.
+If $ARGUMENTS specifies constraints (like "quick" or "fish"), respect those.
 
-**Medium (30 min):** Recipe name
-Brief description. Key ingredients.
+## Pattern recognition (as food log grows)
 
-**Weekend/relaxed (45+ min):** Recipe name
-Brief description. Key ingredients.
-
-Each recipe should:
-- Be a real, specific, cookable recipe (not "some kind of stir fry")
-- Include enough detail to actually cook it (key ingredients, rough method)
-- Note protein source and approximate vegetable content
-- Flag if dairy-free or can be easily adapted
-- Be varied — different cuisines, different proteins, different base (rice/noodles/bread/potato)
+Over time, use the food log to identify:
+- **Favorites** — meals that appear often, good to rotate back to
+- **Variety gaps** — e.g. always pasta, rarely rice/grains; always salmon, never white fish
+- **Protein balance** — are non-meat days getting enough protein?
+- **Vegetable variety** — rotating through different types, not just the same bag of Italian veggies

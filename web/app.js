@@ -384,28 +384,73 @@ async function openSession(dateStr) {
       const isPace = mode === "pace";
       const values = laps.map((l) => isPace ? speedToPace(l.avgSpeed) : speedToKmh(l.avgSpeed));
       const avgVal = values.reduce((a, b) => a + b, 0) / values.length;
+      const minVal = Math.min(...values);
+      const maxVal = Math.max(...values);
+      const range = maxVal - minVal;
+      const pad = Math.max(range * 0.2, isPace ? 0.2 : 0.5);
+
       const label = document.getElementById("pace-chart-label");
       if (label) label.textContent = isPace ? "Pace (min/km)" : "Speed (km/h)";
 
       const paceOpts = JSON.parse(JSON.stringify(miniOpts));
+      paceOpts.scales.x.ticks = { ...paceOpts.scales.x.ticks, font: { family: "IBM Plex Sans", size: 9 }, color: "#8a837c" };
+      paceOpts.scales.y.ticks = { font: { family: "IBM Plex Sans", size: 9 }, color: "#8a837c", padding: 4 };
+      paceOpts.scales.y.grid = { color: "rgba(0,0,0,0.04)", drawTicks: false };
+      paceOpts.scales.y.display = true;
+      paceOpts.scales.x.display = true;
+
       if (isPace) {
         paceOpts.scales.y.reverse = true;
+        paceOpts.scales.y.min = Math.max(0, minVal - pad);
+        paceOpts.scales.y.max = maxVal + pad;
+        paceOpts.scales.y.ticks.callback = (v) => formatPace(v);
         paceOpts.plugins.tooltip.callbacks = { label: (i) => formatPace(i.parsed.y) + " /km" };
       } else {
-        paceOpts.plugins.tooltip.callbacks = { label: (i) => i.parsed.y + " km/h" };
+        paceOpts.scales.y.min = Math.max(0, Math.floor((minVal - pad) * 2) / 2);
+        paceOpts.scales.y.max = Math.ceil((maxVal + pad) * 2) / 2;
+        paceOpts.scales.y.ticks.callback = (v) => v.toFixed(1);
+        paceOpts.plugins.tooltip.callbacks = { label: (i) => i.parsed.y.toFixed(1) + " km/h" };
       }
+
+      // Km labels
+      const kmLabels = laps.map((l) => `km ${l.index}`);
 
       registerChart("detail-pace", new Chart(document.getElementById("detail-pace-chart"), {
         type: "bar",
         data: {
-          labels: lapLabels,
-          datasets: [{
-            data: values,
-            backgroundColor: values.map((v) => isPace ? (v < avgVal ? PALETTE.olive + "90" : PALETTE.terracotta + "70") : (v > avgVal ? PALETTE.olive + "90" : PALETTE.terracotta + "70")),
-            borderRadius: 3, borderSkipped: false,
-          }],
+          labels: kmLabels,
+          datasets: [
+            {
+              label: isPace ? "Pace" : "Speed",
+              data: values,
+              backgroundColor: values.map((v) => isPace
+                ? (v < avgVal ? PALETTE.olive + "90" : v > avgVal * 1.03 ? PALETTE.terracotta + "70" : PALETTE.clay + "60")
+                : (v > avgVal ? PALETTE.olive + "90" : v < avgVal * 0.97 ? PALETTE.terracotta + "70" : PALETTE.clay + "60")
+              ),
+              borderRadius: 4, borderSkipped: false,
+            },
+            {
+              label: "Average",
+              type: "line",
+              data: Array(values.length).fill(avgVal),
+              borderColor: "#8a837c",
+              borderWidth: 1.5,
+              borderDash: [5, 3],
+              pointRadius: 0,
+              fill: false,
+            },
+          ],
         },
-        options: paceOpts,
+        options: {
+          ...paceOpts,
+          plugins: {
+            ...paceOpts.plugins,
+            legend: {
+              display: true, position: "bottom",
+              labels: { boxWidth: 12, boxHeight: 2, padding: 8, font: { family: "IBM Plex Sans", size: 9, weight: "300" }, color: "#8a837c" },
+            },
+          },
+        },
       }));
     }
 
@@ -974,10 +1019,14 @@ async function renderSteps(days = 14) {
     labels: { boxWidth: 12, boxHeight: 2, padding: 8, font: { ...FONT, size: 10, weight: "300" }, color: "#8a837c" },
   };
 
+  const allSteps = data.map((d) => d.steps);
+  const stepsMax = Math.max(...allSteps, goal || 0);
+  const stepsPad = stepsMax * 0.08;
+
   registerChart("steps", new Chart(document.getElementById("steps-chart"), {
     type: "bar",
     data: { labels: data.map((d) => d.date), datasets },
-    options: { ...opts, scales: { ...opts.scales, y: { ...opts.scales.y, min: 0 } } },
+    options: { ...opts, scales: { ...opts.scales, y: { ...opts.scales.y, min: 0, max: Math.ceil((stepsMax + stepsPad) / 1000) * 1000 } } },
   }));
 }
 

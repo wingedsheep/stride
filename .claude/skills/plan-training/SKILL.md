@@ -6,66 +6,55 @@ argument-hint: "[duration or target date, e.g. '4 weeks' or 'until marathon in J
 allowed-tools: Read, Bash, Grep, Glob, Agent
 ---
 
-Create a multi-period training plan following the multi-week section in `docs/training-plan-process.md`.
+Create a multi-period training plan. Save to `training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md`.
 
 Arguments: $ARGUMENTS
 
-## Step 1: Gather data (use parallel subagents)
+## Data to gather (use parallel subagents)
 
-Launch these subagents in parallel:
+1. **Full training history**: Read ALL `training/log/` files. Run `source .venv/bin/activate && python scripts/analyze.py strength` and `python scripts/analyze.py activities 365`. Need: complete progression, and realistic training frequency (what they've actually achieved, not aspirational).
+2. **Current fitness & recovery**: Run `source .venv/bin/activate && python scripts/analyze.py summary`. Where do things stand right now?
+3. **Goals & context**: Read `profile/goals.md`, `profile/preferences.md`. Read latest `health/summary-*.md` for focus areas and advice.
 
-**Agent 1 — Full training history**: Read ALL files in `training/log/`. Run `source .venv/bin/activate && python scripts/analyze.py strength` and `python scripts/analyze.py activities 365`. Summarize: complete exercise progression, training frequency per month over the past year, activity types and their frequency, realistic training frequency (what they've actually achieved, not aspirational).
+## Output structure
 
-**Agent 2 — Current fitness & recovery**: Run `source .venv/bin/activate && python scripts/analyze.py summary`. Focus on: current vitals baselines, sleep trends, step counts, overall fitness trajectory (improving or declining).
-
-**Agent 3 — Goals & context**: Read `profile/goals.md`, `profile/preferences.md`, `profile/nutrition.md`. Read any existing plan in `training/programs/plan-*.md`. Read the latest `health/summary-*.md` for focus areas. Summarize: all goals (strength, running, grounding/yoga), preferences, health priorities, what the latest summary recommends.
-
-## Step 2: Design the plan
-
-Determine the plan duration from $ARGUMENTS (default: 4 weeks if not specified).
-
-Planning principles:
-- **Be realistic about frequency** — base it on recent actual frequency, then step up gradually (e.g. if doing 1.5x/week, plan for 2x, not 5x)
-- **Address all goals**: strength (2x/week), running (gradual return), yoga/meditation (grounding goal)
-- **Progressive overload**: plan weight increases every 1-2 weeks for progressing lifts
-- **Prioritize weaknesses**: more volume for lagging lifts (shoulder press, chest press plateau)
-- **Include deload**: if plan is 4+ weeks, include a lighter week
-- **Consider the health summary**: if sleep is the top priority, don't plan 6 sessions/week
-
-## Step 3: Write the plan
-
-Save to `training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md`:
-
-```
+```markdown
 # Training Plan — Start → End
 
 ## Overview
-<what this plan aims to achieve, based on current status>
+<what this plan aims to achieve, current starting point>
 
 ## Weekly Template
 | Day | Activity | Focus | Duration |
 |-----|----------|-------|----------|
-| ... | ...      | ...   | ...      |
 
 ## Strength Targets
-| Exercise | Current | Target (end of plan) | Strategy |
-|----------|---------|---------------------|----------|
-| ...      | ...     | ...                 | ...      |
+| Exercise | Current | Target | Strategy |
+|----------|---------|--------|----------|
 
 ## Week-by-week
+### Week 1: ...
+### Week 2: ...
 
-### Week 1: Re-establish routine
-...
-
-### Week 2: Build
-...
-
-## Running Plan
-<gradual return plan if running is a goal>
+## Running / Cardio Plan
+<gradual return if applicable — don't jump to long distances>
 
 ## Recovery & Grounding
-<yoga/meditation schedule, when to rest>
+<yoga, meditation, rest days>
 
-## Adjustments
-<when to modify the plan — signs of overtraining, life getting busy, etc.>
+## When to Adjust
+<signs to modify the plan — overtraining, life gets busy, etc.>
 ```
+
+## Guidance
+
+Use your own reasoning, but keep these principles in mind:
+
+- **Realistic frequency first** — base it on what the user has actually achieved recently, then step up gradually. Going from 1.5x/week to 2-2.5x is realistic. Going to 5x is not
+- **Address all goals**: strength (primary), running (return), grounding (yoga/meditation) — don't just plan gym sessions
+- **Progressive overload**: plan specific weight increases every 1-2 weeks for progressing lifts. For plateaued exercises, plan stimulus changes
+- **Prioritize weaknesses**: more volume for lagging muscle groups (shoulder press, chest press)
+- **Include deload**: for plans 4+ weeks, build in a lighter recovery week
+- **Consider the health summary**: if sleep is the #1 issue, an aggressive training plan will make things worse — address the foundation first
+- **Running return**: if the user is restarting, plan gradual increases (not 0 to 10k in week 1)
+- Duration defaults to 4 weeks if not specified in $ARGUMENTS
