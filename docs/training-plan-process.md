@@ -14,7 +14,7 @@ When the user asks "plan my next workout" / "what should I do next" / "next sess
 
 ### Plan structure
 
-Save to `training/programs/next-session-YYYY-MM-DD.md`:
+Save to `training/programs/next-session-YYYY-MM-DD.md` (automatically visible on the dashboard Plans tab):
 
 ```markdown
 # Next Session Plan — YYYY-MM-DD
@@ -63,10 +63,12 @@ When the user asks "make a plan for next week/month" / "plan until <event>":
 - Count weeks until target date (if event-based)
 - Activity frequency from `python scripts/analyze.py activities`
 - All goals from `profile/goals.md` (strength, running, yoga/meditation)
+- **Recent activity types** — check `garmin/workouts/` to see what the user is already doing (e.g. running, padel). Don't suggest "building up from walks" if they're already running regularly.
+- **Existing equipment** — check `profile/preferences.md` and recent journal entries for things already owned (e.g. blood pressure monitor)
 
 ### Plan structure
 
-Save to `training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md`:
+Save to `training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md` (automatically visible on the dashboard Plans tab):
 
 ```markdown
 # Training Plan — Start Date → End Date
@@ -102,4 +104,4 @@ Save to `training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md`:
 - **Address weaknesses**: allocate more volume to lagging muscle groups (shoulder press, chest press)
 - **Include recovery goals**: yoga/meditation sessions count toward the grounding goal
 - **Be realistic**: base frequency on what the user has actually achieved recently, not aspirational targets. If they've been training 1.5x/week, plan for 2x, not 4x
-- **Running**: follow a gradual return plan, don't jump to long distances
+- **Running**: check recent Garmin data for current running frequency/distance before planning. If already running, focus on consistency — don't prescribe a beginner ramp-up. Only suggest gradual return if the data shows no recent runs.

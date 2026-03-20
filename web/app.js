@@ -1284,6 +1284,311 @@ async function renderHealthHistory() {
   });
 }
 
+// ── Plans ────────────────────────────────────────────────────────────────────
+
+function planMdToHtml(content) {
+  const lines = content.split("\n");
+  let html = "";
+  let inTable = false;
+  let tableRows = [];
+
+  function flushTable() {
+    if (!tableRows.length) return;
+    const headerCells = tableRows[0];
+    let t = `<table class="plan-table"><thead><tr>${headerCells.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>`;
+    for (let r = 2; r < tableRows.length; r++) {
+      t += `<tr>${tableRows[r].map((c) => `<td>${c}</td>`).join("")}</tr>`;
+    }
+    t += "</tbody></table>";
+    html += t;
+    tableRows = [];
+    inTable = false;
+  }
+
+  for (const line of lines) {
+    // Skip the H1 title — we render that separately
+    if (line.match(/^# /)) continue;
+
+    // Table rows
+    if (line.match(/^\|/)) {
+      const cells = line.split("|").slice(1, -1).map((c) => c.trim());
+      if (cells.every((c) => c.match(/^[-:]+$/))) {
+        // separator row — keep it for index tracking
+        tableRows.push(cells);
+        inTable = true;
+        continue;
+      }
+      tableRows.push(cells);
+      inTable = true;
+      continue;
+    } else if (inTable) {
+      flushTable();
+    }
+
+    // Blockquote
+    if (line.match(/^>\s*/)) {
+      html += `<div class="plan-quote">${line.replace(/^>\s*/, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</div>`;
+      continue;
+    }
+
+    // Headings
+    if (line.match(/^## /)) {
+      html += `<h3 class="plan-h2">${line.replace(/^## /, "")}</h3>`;
+      continue;
+    }
+    if (line.match(/^### /)) {
+      html += `<h4 class="plan-h3">${line.replace(/^### /, "")}</h4>`;
+      continue;
+    }
+
+    // Horizontal rule
+    if (line.match(/^---\s*$/)) {
+      html += `<hr class="plan-hr">`;
+      continue;
+    }
+
+    // List items
+    if (line.match(/^- /)) {
+      html += `<div class="plan-li">${line.replace(/^- /, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</div>`;
+      continue;
+    }
+
+    // Regular text
+    if (line.trim()) {
+      html += `<div class="plan-p">${line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</div>`;
+    }
+  }
+
+  if (inTable) flushTable();
+  return html;
+}
+
+async function renderPlans() {
+  const plans = await fetch("/api/plans").then((r) => r.json());
+  const container = document.getElementById("plans-list");
+  container.innerHTML = "";
+
+  if (!plans.length) {
+    container.innerHTML = `<div style="color:var(--ink-muted);font-size:0.85rem;">No plans yet.</div>`;
+    return;
+  }
+
+  const timeline = document.createElement("div");
+  timeline.className = "health-timeline";
+  container.appendChild(timeline);
+
+  [...plans].reverse().forEach((p, i) => {
+    const report = document.createElement("div");
+    report.className = "report";
+    report.style.animationDelay = `${i * 0.08}s`;
+
+    const bodyId = `plan-body-${i}`;
+    const isFirst = i === 0;
+    const typeBadge = p.type === "next-session"
+      ? `<span class="plan-type-badge plan-type-session">Next Session</span>`
+      : `<span class="plan-type-badge plan-type-plan">Plan</span>`;
+
+    // Extract first blockquote or first paragraph as summary
+    const contentLines = p.content.split("\n").filter((l) => !l.match(/^# /));
+    let summary = "";
+    for (const line of contentLines) {
+      if (line.match(/^>\s*(.+)/)) {
+        summary = line.replace(/^>\s*/, "").replace(/\*\*(.+?)\*\*/g, "$1");
+        break;
+      }
+    }
+    if (!summary) {
+      // Find first non-empty, non-heading, non-hr line
+      for (const line of contentLines) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.match(/^[#>-]/) && !trimmed.match(/^---/)) {
+          summary = trimmed.replace(/\*\*(.+?)\*\*/g, "$1");
+          break;
+        }
+      }
+    }
+
+    const bodyHtml = planMdToHtml(p.content);
+
+    report.innerHTML = `
+      <div class="report-date">${p.date ? formatDate(p.date) : "Undated"}</div>
+      <div class="report-card">
+        <div class="report-hero">
+          <div class="report-title" style="display:flex;align-items:center;gap:0.6rem;">
+            ${p.title}
+            ${typeBadge}
+          </div>
+          ${summary ? `<div class="report-overall">${summary}</div>` : ""}
+        </div>
+        <button class="report-toggle" data-target="${bodyId}">
+          ${isFirst ? "Hide details" : "Show details"}
+        </button>
+        <div class="report-body plan-body ${isFirst ? "" : "collapsed"}" id="${bodyId}">
+          ${bodyHtml}
+        </div>
+      </div>
+    `;
+
+    timeline.appendChild(report);
+  });
+
+  // Toggle handlers
+  timeline.querySelectorAll(".report-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const body = document.getElementById(btn.dataset.target);
+      const collapsed = body.classList.toggle("collapsed");
+      btn.textContent = collapsed ? "Show details" : "Hide details";
+    });
+  });
+}
+
+// ── Journal ──────────────────────────────────────────────────────────────────
+
+function journalMdToHtml(content) {
+  return content.split("\n").map((line) => {
+    if (line.match(/^# /)) return "";
+    if (line.match(/^## /)) return `<h3 class="plan-h2">${line.replace(/^## /, "")}</h3>`;
+    if (line.match(/^- /)) return `<div class="plan-li">${line.replace(/^- /, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</div>`;
+    if (line.trim()) return `<div class="plan-p">${line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</div>`;
+    return "";
+  }).join("\n");
+}
+
+async function renderJournal(days) {
+  const entries = await fetch(`/api/journal?days=${days || 30}`).then((r) => r.json());
+  const container = document.getElementById("journal-list");
+  container.innerHTML = "";
+
+  if (!entries.length) {
+    container.innerHTML = `<div style="color:var(--ink-muted);font-size:0.85rem;">No journal entries yet.</div>`;
+    return;
+  }
+
+  const timeline = document.createElement("div");
+  timeline.className = "health-timeline";
+  container.appendChild(timeline);
+
+  [...entries].reverse().forEach((entry, i) => {
+    const el = document.createElement("div");
+    el.className = "report";
+    el.style.animationDelay = `${i * 0.06}s`;
+
+    const bodyId = `journal-body-${i}`;
+    const isFirst = i === 0;
+
+    // Extract first few list items as preview
+    const items = entry.content.split("\n").filter((l) => l.match(/^- /)).slice(0, 3);
+    const preview = items.map((l) => l.replace(/^- /, "")).join(" · ");
+
+    el.innerHTML = `
+      <div class="report-date">${formatDate(entry.date)}</div>
+      <div class="report-card">
+        <div class="report-hero">
+          <div class="report-title">${entry.title}</div>
+          ${preview ? `<div class="report-overall">${preview}</div>` : ""}
+        </div>
+        <button class="report-toggle" data-target="${bodyId}">
+          ${isFirst ? "Hide details" : "Show details"}
+        </button>
+        <div class="report-body plan-body ${isFirst ? "" : "collapsed"}" id="${bodyId}">
+          ${journalMdToHtml(entry.content)}
+        </div>
+      </div>
+    `;
+    timeline.appendChild(el);
+  });
+
+  timeline.querySelectorAll(".report-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const body = document.getElementById(btn.dataset.target);
+      const collapsed = body.classList.toggle("collapsed");
+      btn.textContent = collapsed ? "Show details" : "Hide details";
+    });
+  });
+}
+
+// ── Food ─────────────────────────────────────────────────────────────────────
+
+async function renderFood(days) {
+  const entries = await fetch(`/api/food?days=${days || 30}`).then((r) => r.json());
+  const container = document.getElementById("food-list");
+  container.innerHTML = "";
+
+  if (!entries.length) {
+    container.innerHTML = `<div style="color:var(--ink-muted);font-size:0.85rem;">No food logs yet.</div>`;
+    return;
+  }
+
+  const timeline = document.createElement("div");
+  timeline.className = "health-timeline";
+  container.appendChild(timeline);
+
+  [...entries].reverse().forEach((entry, i) => {
+    const el = document.createElement("div");
+    el.className = "report";
+    el.style.animationDelay = `${i * 0.06}s`;
+
+    const bodyId = `food-body-${i}`;
+    const isFirst = i === 0;
+
+    const items = entry.content.split("\n").filter((l) => l.match(/^- /)).slice(0, 3);
+    const preview = items.map((l) => l.replace(/^- /, "")).join(" · ");
+
+    el.innerHTML = `
+      <div class="report-date">${formatDate(entry.date)}</div>
+      <div class="report-card">
+        <div class="report-hero">
+          <div class="report-title">${entry.title}</div>
+          ${preview ? `<div class="report-overall">${preview}</div>` : ""}
+        </div>
+        <button class="report-toggle" data-target="${bodyId}">
+          ${isFirst ? "Hide details" : "Show details"}
+        </button>
+        <div class="report-body plan-body ${isFirst ? "" : "collapsed"}" id="${bodyId}">
+          ${journalMdToHtml(entry.content)}
+        </div>
+      </div>
+    `;
+    timeline.appendChild(el);
+  });
+
+  timeline.querySelectorAll(".report-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const body = document.getElementById(btn.dataset.target);
+      const collapsed = body.classList.toggle("collapsed");
+      btn.textContent = collapsed ? "Show details" : "Hide details";
+    });
+  });
+}
+
+// ── Profile ──────────────────────────────────────────────────────────────────
+
+async function renderProfile() {
+  const profile = await fetch("/api/profile").then((r) => r.json());
+  const container = document.getElementById("profile-content");
+  container.innerHTML = "";
+
+  const sections = [
+    { key: "goals", label: "Goals" },
+    { key: "nutrition", label: "Nutrition" },
+    { key: "preferences", label: "Preferences" },
+  ];
+
+  for (const { key, label } of sections) {
+    if (!profile[key]) continue;
+
+    const card = document.createElement("div");
+    card.className = "profile-card";
+    card.innerHTML = `
+      <div class="profile-card-title">${label}</div>
+      <div class="profile-card-body">
+        ${journalMdToHtml(profile[key])}
+      </div>
+    `;
+    container.appendChild(card);
+  }
+}
+
 // ── Range buttons ────────────────────────────────────────────────────────────
 
 document.querySelectorAll(".page").forEach((page) => {
@@ -1297,6 +1602,8 @@ document.querySelectorAll(".page").forEach((page) => {
         if (section === "recovery") renderRecovery(days);
         else if (section === "steps") renderSteps(days);
         else if (section === "activities") renderActivities(days);
+        else if (section === "journal") renderJournal(days);
+        else if (section === "food") renderFood(days);
       });
     });
   });
@@ -1319,3 +1626,7 @@ renderHealthHistory();
 renderRecovery(14);
 renderSteps(14);
 renderActivities(90);
+renderPlans();
+renderJournal(30);
+renderFood(30);
+renderProfile();

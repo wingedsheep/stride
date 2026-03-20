@@ -449,6 +449,106 @@ function getSessionDetail(dateStr) {
   };
 }
 
+// ── Journal parsing ──────────────────────────────────────────────────────────
+
+function getJournalEntries(days) {
+  const dir = path.join(ROOT, "journal");
+  if (!fs.existsSync(dir)) return [];
+
+  let files = fs.readdirSync(dir).filter((f) => f.match(/^\d{4}-\d{2}-\d{2}\.md$/));
+  files.sort();
+
+  if (days) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    files = files.filter((f) => f.slice(0, 10) >= cutoffStr);
+  }
+
+  return files.map((f) => {
+    const content = fs.readFileSync(path.join(dir, f), "utf-8");
+    const titleMatch = content.match(/^# (.+)/m);
+    return {
+      date: f.slice(0, 10),
+      title: titleMatch ? titleMatch[1].trim() : f.slice(0, 10),
+      content,
+    };
+  });
+}
+
+// ── Food log parsing ─────────────────────────────────────────────────────────
+
+function getFoodEntries(days) {
+  const dir = path.join(ROOT, "food");
+  if (!fs.existsSync(dir)) return [];
+
+  let files = fs.readdirSync(dir).filter((f) => f.match(/^\d{4}-\d{2}-\d{2}\.md$/));
+  files.sort();
+
+  if (days) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    files = files.filter((f) => f.slice(0, 10) >= cutoffStr);
+  }
+
+  return files.map((f) => {
+    const content = fs.readFileSync(path.join(dir, f), "utf-8");
+    const titleMatch = content.match(/^# (.+)/m);
+    return {
+      date: f.slice(0, 10),
+      title: titleMatch ? titleMatch[1].trim() : f.slice(0, 10),
+      content,
+    };
+  });
+}
+
+// ── Profile parsing ──────────────────────────────────────────────────────────
+
+function getProfile() {
+  const dir = path.join(ROOT, "profile");
+  if (!fs.existsSync(dir)) return {};
+
+  const result = {};
+  const files = ["goals.md", "preferences.md", "nutrition.md"];
+  for (const f of files) {
+    const fp = path.join(dir, f);
+    if (fs.existsSync(fp)) {
+      result[f.replace(".md", "")] = fs.readFileSync(fp, "utf-8");
+    }
+  }
+  return result;
+}
+
+// ── Plans parsing ────────────────────────────────────────────────────────────
+
+function getPlans() {
+  const dir = path.join(ROOT, "training", "programs");
+  if (!fs.existsSync(dir)) return [];
+
+  const files = fs.readdirSync(dir)
+    .filter((f) => f.endsWith(".md"))
+    .sort();
+
+  return files.map((f) => {
+    const content = fs.readFileSync(path.join(dir, f), "utf-8");
+    const titleMatch = content.match(/^# (.+)/m);
+    const dateMatch = f.match(/(\d{4}-\d{2}-\d{2})/);
+
+    // Determine type from filename
+    let type = "plan";
+    if (f.startsWith("next-session-")) type = "next-session";
+
+    return {
+      filename: f,
+      date: dateMatch ? dateMatch[1] : null,
+      title: titleMatch ? titleMatch[1].trim() : f.replace(".md", ""),
+      type,
+      content,
+    };
+  });
+}
+
 // ── HTTP server ─────────────────────────────────────────────────────────────
 
 const MIME = {
@@ -481,6 +581,10 @@ const server = http.createServer((req, res) => {
     return json(res, getSessionDetail(dateStr));
   }
   if (pathname === "/api/health-summaries") return json(res, getHealthSummaries());
+  if (pathname === "/api/plans") return json(res, getPlans());
+  if (pathname === "/api/journal") return json(res, getJournalEntries(days || 90));
+  if (pathname === "/api/food") return json(res, getFoodEntries(days || 90));
+  if (pathname === "/api/profile") return json(res, getProfile());
 
   // Static files
   let filePath = pathname === "/" ? "/index.html" : pathname;
