@@ -510,12 +510,9 @@ function getProfile() {
   if (!fs.existsSync(dir)) return {};
 
   const result = {};
-  const files = ["goals.md", "preferences.md", "nutrition.md"];
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".md"));
   for (const f of files) {
-    const fp = path.join(dir, f);
-    if (fs.existsSync(fp)) {
-      result[f.replace(".md", "")] = fs.readFileSync(fp, "utf-8");
-    }
+    result[f.replace(".md", "")] = fs.readFileSync(path.join(dir, f), "utf-8");
   }
   return result;
 }
@@ -554,7 +551,8 @@ function getPlans() {
 const MIME = {
   ".html": "text/html", ".css": "text/css",
   ".js": "application/javascript", ".json": "application/json",
-  ".svg": "image/svg+xml",
+  ".svg": "image/svg+xml", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+  ".png": "image/png", ".webp": "image/webp",
 };
 
 function json(res, data) {
@@ -582,9 +580,34 @@ const server = http.createServer((req, res) => {
   }
   if (pathname === "/api/health-summaries") return json(res, getHealthSummaries());
   if (pathname === "/api/plans") return json(res, getPlans());
+  if (pathname === "/api/weight") {
+    const fp = path.join(ROOT, "health", "weight.json");
+    if (fs.existsSync(fp)) {
+      try { return json(res, JSON.parse(fs.readFileSync(fp, "utf-8"))); } catch {}
+    }
+    return json(res, []);
+  }
+  if (pathname === "/api/focus") {
+    const fp = path.join(ROOT, "health", "focus.json");
+    if (fs.existsSync(fp)) {
+      try { return json(res, JSON.parse(fs.readFileSync(fp, "utf-8"))); } catch {}
+    }
+    return json(res, []);
+  }
   if (pathname === "/api/journal") return json(res, getJournalEntries(days || 90));
   if (pathname === "/api/food") return json(res, getFoodEntries(days || 90));
   if (pathname === "/api/profile") return json(res, getProfile());
+
+  // Food photos
+  if (pathname.startsWith("/photos/food/")) {
+    const photoPath = path.join(ROOT, "food", "photos", pathname.replace("/photos/food/", ""));
+    const ext = path.extname(photoPath);
+    if (fs.existsSync(photoPath)) {
+      res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream" });
+      res.end(fs.readFileSync(photoPath));
+      return;
+    }
+  }
 
   // Static files
   let filePath = pathname === "/" ? "/index.html" : pathname;

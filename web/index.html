@@ -20,8 +20,8 @@
       <nav class="nav-tabs">
         <button class="tab active" data-section="overview">Overview</button>
         <button class="tab" data-section="strength">Strength</button>
-        <button class="tab" data-section="recovery">Recovery</button>
-        <button class="tab" data-section="health">Health</button>
+        <button class="tab" data-section="recovery">Body</button>
+        <button class="tab" data-section="health">Reports</button>
         <button class="tab" data-section="steps">Steps</button>
         <button class="tab" data-section="activities">Activities</button>
         <button class="tab" data-section="plans">Plans</button>
@@ -36,6 +36,7 @@
     <!-- Overview -->
     <section class="page active" id="overview">
       <div class="overview-grid" id="overview-grid"></div>
+      <div id="overview-focus"></div>
       <div class="section-label" style="margin-top:2rem">Recent Activities</div>
       <div id="overview-activities"></div>
     </section>
@@ -89,6 +90,16 @@
       <div class="chart-card wide" style="margin-top:1rem">
         <h3>Sleep Stages</h3>
         <div class="chart-wrap tall"><canvas id="sleep-stages-chart"></canvas></div>
+      </div>
+      <div class="dual-chart-row" style="margin-top:1rem">
+        <div class="chart-card wide">
+          <h3>Weight</h3>
+          <div class="chart-wrap tall"><canvas id="weight-chart"></canvas></div>
+        </div>
+        <div class="chart-card wide">
+          <h3>Body Fat %</h3>
+          <div class="chart-wrap tall"><canvas id="bodyfat-chart"></canvas></div>
+        </div>
       </div>
     </section>
 

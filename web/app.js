@@ -691,6 +691,31 @@ async function renderOverview() {
     grid.appendChild(el);
   });
 
+  // Focus points
+  const focusContainer = document.getElementById("overview-focus");
+  focusContainer.innerHTML = "";
+  try {
+    const focusPoints = await fetch("/api/focus").then((r) => r.json());
+    if (focusPoints && focusPoints.length) {
+      const focusEl = document.createElement("div");
+      focusEl.className = "overview-focus-bar";
+      focusEl.innerHTML = `
+        <div class="overview-focus-label">Focus</div>
+        <div class="overview-focus-items">
+          ${focusPoints.map((f, i) => {
+            const colors = ["var(--terracotta)", "var(--clay)", "var(--olive)", "var(--sea)", "var(--fig)"];
+            return `<div class="overview-focus-item">
+              <span class="overview-focus-dot" style="background:${colors[i % colors.length]}"></span>
+              <span class="overview-focus-title">${f.title}</span>
+              ${f.target ? `<span class="overview-focus-target">${f.target}</span>` : ""}
+            </div>`;
+          }).join("")}
+        </div>
+      `;
+      focusContainer.appendChild(focusEl);
+    }
+  } catch {}
+
   // Recent activities
   const list = document.getElementById("overview-activities");
   list.innerHTML = "";
@@ -950,7 +975,54 @@ async function renderRecovery(days = 14) {
   }));
 }
 
-// (Vitals are now part of the Recovery tab)
+// Weight & body fat charts (inside Recovery)
+async function renderWeight() {
+  const data = await fetch("/api/weight").then((r) => r.json());
+  if (!data.length) return;
+
+  const labels = data.map((d) => d.date);
+  const weights = data.map((d) => d.weight);
+  const bodyFats = data.map((d) => d.bodyFat);
+
+  const latest = data[data.length - 1];
+  const first = data[0];
+
+  // Weight chart
+  destroyChart("weight");
+  const weightOpts = baseOpts("kg");
+  weightOpts.scales.y.min = Math.floor(Math.min(...weights) - 1);
+  weightOpts.scales.y.max = Math.ceil(Math.max(...weights) + 1);
+  weightOpts.scales.x.time.unit = "month";
+  registerChart("weight", new Chart(document.getElementById("weight-chart"), {
+    type: "line",
+    data: {
+      datasets: [makeDataset(
+        labels.map((l, i) => ({ x: l, y: weights[i] })),
+        "#4a7c8a",
+        { pointRadius: 4 }
+      )],
+    },
+    options: weightOpts,
+  }));
+
+  // Body fat chart
+  destroyChart("bodyfat");
+  const bfOpts = baseOpts("%");
+  bfOpts.scales.y.min = Math.floor(Math.min(...bodyFats) - 1);
+  bfOpts.scales.y.max = Math.ceil(Math.max(...bodyFats) + 1);
+  bfOpts.scales.x.time.unit = "month";
+  registerChart("bodyfat", new Chart(document.getElementById("bodyfat-chart"), {
+    type: "line",
+    data: {
+      datasets: [makeDataset(
+        labels.map((l, i) => ({ x: l, y: bodyFats[i] })),
+        "#a0826d",
+        { pointRadius: 4 }
+      )],
+    },
+    options: bfOpts,
+  }));
+}
 
 // ── Steps ────────────────────────────────────────────────────────────────────
 
@@ -1448,6 +1520,12 @@ function journalMdToHtml(content) {
   return content.split("\n").map((line) => {
     if (line.match(/^# /)) return "";
     if (line.match(/^## /)) return `<h3 class="plan-h2">${line.replace(/^## /, "")}</h3>`;
+    // Image in list item
+    const imgInLi = line.match(/^- !\[([^\]]*)\]\(([^)]+)\)/);
+    if (imgInLi) return `<div class="food-photo"><img src="${imgInLi[2]}" alt="${imgInLi[1]}" loading="lazy"></div>`;
+    // Standalone image
+    const img = line.match(/^!\[([^\]]*)\]\(([^)]+)\)/);
+    if (img) return `<div class="food-photo"><img src="${img[2]}" alt="${img[1]}" loading="lazy"></div>`;
     if (line.match(/^- /)) return `<div class="plan-li">${line.replace(/^- /, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</div>`;
     if (line.trim()) return `<div class="plan-p">${line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</div>`;
     return "";
@@ -1564,29 +1642,58 @@ async function renderFood(days) {
 // ── Profile ──────────────────────────────────────────────────────────────────
 
 async function renderProfile() {
-  const profile = await fetch("/api/profile").then((r) => r.json());
+  const [profile, weightData] = await Promise.all([
+    fetch("/api/profile").then((r) => r.json()),
+    fetch("/api/weight").then((r) => r.json()),
+  ]);
   const container = document.getElementById("profile-content");
   container.innerHTML = "";
 
+  const latest = weightData.length ? weightData[weightData.length - 1] : null;
+  const weight = latest ? latest.weight : 75;
+  const bodyFat = latest ? latest.bodyFat : null;
+  const bmi = Math.round(weight / (1.87 * 1.87) * 10) / 10;
+
+  // Personal info header
+  const header = document.createElement("div");
+  header.className = "profile-header";
+  header.innerHTML = `
+    <div class="profile-name">Vincent</div>
+    <div class="profile-stats-row">
+      <div class="profile-stat"><span class="profile-stat-value">37</span><span class="profile-stat-label">age</span></div>
+      <div class="profile-stat"><span class="profile-stat-value">187</span><span class="profile-stat-label">cm</span></div>
+      <div class="profile-stat"><span class="profile-stat-value">${weight}</span><span class="profile-stat-label">kg</span></div>
+      ${bodyFat ? `<div class="profile-stat"><span class="profile-stat-value">${bodyFat}</span><span class="profile-stat-label">% fat</span></div>` : ""}
+      <div class="profile-stat"><span class="profile-stat-value">${bmi}</span><span class="profile-stat-label">BMI</span></div>
+    </div>
+  `;
+  container.appendChild(header);
+
+  // Section cards in a grid
+  const grid = document.createElement("div");
+  grid.className = "profile-grid";
+  container.appendChild(grid);
+
   const sections = [
-    { key: "goals", label: "Goals" },
-    { key: "nutrition", label: "Nutrition" },
-    { key: "preferences", label: "Preferences" },
+    { key: "goals", label: "Goals", icon: "target" },
+    { key: "preferences", label: "Preferences", icon: "sliders" },
+    { key: "nutrition", label: "Nutrition", icon: "utensils" },
   ];
 
-  for (const { key, label } of sections) {
-    if (!profile[key]) continue;
+  sections.forEach(({ key, label }, i) => {
+    if (!profile[key]) return;
 
     const card = document.createElement("div");
     card.className = "profile-card";
+    card.style.animationDelay = `${i * 0.08}s`;
     card.innerHTML = `
       <div class="profile-card-title">${label}</div>
       <div class="profile-card-body">
         ${journalMdToHtml(profile[key])}
       </div>
     `;
-    container.appendChild(card);
-  }
+    grid.appendChild(card);
+  });
 }
 
 // ── Range buttons ────────────────────────────────────────────────────────────
@@ -1630,3 +1737,4 @@ renderPlans();
 renderJournal(30);
 renderFood(30);
 renderProfile();
+renderWeight();
