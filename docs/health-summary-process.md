@@ -63,27 +63,42 @@ The `correlations` command specifically looks for patterns between metrics to gr
 
 Use this format in `health/summary-YYYY-MM-DD.md`:
 
-1. **`## Overall`** — one-paragraph honest assessment
-2. **`## Focus Areas`** — numbered `###` subsections, each with:
-   - A `**Current:**` line — key metric snapshot (e.g. "5.6 hrs avg, score 65"). This is displayed prominently on the dashboard focus cards
-   - Actual numbers and trend direction in bullet points
-   - A `**Target:**` line — what to aim for
-   - An `**Advice:**` line with concrete actionable suggestions
-3. **`## Practical Advice`** — the most important section. Organized by timeframe:
-   - `### This week — start here` — 2-3 immediate, concrete actions. Each one should explain *what* to do, *why* the data supports it, and *what effect* to expect
-   - `### This month` — 2-3 medium-term actions with reasoning
-   - `### Why this order matters` — explain the priority logic (e.g. sleep is the multiplier because the data shows HRV drops 15ms after bad nights)
-   - Every piece of advice must be grounded in the actual data — reference specific numbers, dates, patterns
-4. **`## Vitals Trends`** — resting HR, HRV, stress with period comparisons. Use rolling averages to describe trends, not raw daily values
-5. **`## Blood Pressure`** — readings and monitoring advice
-6. **`## Bloodwork Status`** — latest results, pending follow-ups
-7. **`## What's Going Well`** — positive trends, things to maintain
+1. **`## Overall`** — one paragraph, brutally honest. Say what's going well and what isn't. Name root causes directly ("you're averaging 5.7 hours because you're coding Argentum until 2 AM"), don't hide behind passive language.
 
-## Guidelines
+2. **`## Focus Areas`** — numbered `###` subsections. Each one should:
+   - Have a `**Current:**` line — key metric snapshot (displayed on dashboard focus cards)
+   - Include actual numbers and trend direction, always compared to baseline (90d/1y)
+   - Have a `**Target:**` line — concrete, measurable
+   - Have an `**Advice:**` line — specific, actionable
+   - End with a **`Commitment:`** line — one concrete, checkable thing. Not "sleep more" but "Screens off at 23:00 every weeknight." This is the thing that gets checked in the next summary.
 
-- Always show trend direction (improving/declining/stable) backed by data
-- Use rolling averages to describe trends — they match what the user sees on the dashboard
-- Identify cross-metric correlations (sleep ↔ HRV, activity ↔ resting HR, etc.)
-- Practical advice is the core of the report — not an afterthought. Each recommendation should have reasoning that references actual data points
-- The summary should read like a report from a sports medicine doctor
-- The dashboard Health tab automatically picks up new `health/summary-*.md` files
+3. **`## The honest picture`** — this is the core. Write it like you're talking to a friend, not writing a medical report. Connect the dots between categories. Explain *why* things are the way they are, name the trade-offs ("Argentum is fun but it's costing you 1.5 hours of sleep per night"), and be clear about what matters most and what's noise. Include:
+   - What's actually going wrong and why
+   - What's going well (don't skip this — but don't use it to soften bad news)
+   - The one thing that would have the biggest cascade effect if fixed
+   - How things compare to the last summary — better, worse, stalled?
+
+4. **`## Vitals`** — resting HR, HRV, stress, weight, body fat. Use rolling averages. Always compare to 1y baseline.
+
+5. **`## Medical`** — blood pressure, bloodwork, anything pending. Only if relevant.
+
+6. **`## Commitments`** — collect all commitments from focus areas into one list. These get reviewed in the next summary.
+
+## Tone
+
+- **Direct.** "Your sleep is bad" not "your sleep could be improved."
+- **Data-backed.** Every statement references a specific number or trend.
+- **Opinionated.** Say what you actually think, not a neutral list of observations.
+- **Personal.** Reference journal context, known habits, life circumstances (work deadlines, side projects, weekend plans). The report should feel like it was written by someone who knows the person.
+- **Honest about trade-offs.** If the user is making a choice that hurts their health (late coding sessions), name it as a choice, don't pretend it's a mystery.
+
+## What NOT to do
+
+- Don't write a medical report. Write like a coach who has all the data.
+- Don't list metrics without interpretation. "HRV 57ms" means nothing. "HRV 57ms, down from 61 a year ago, drops to 48 after bad sleep nights" tells a story.
+- Don't give generic advice. "Exercise more" is useless. "Train Tuesday and Thursday — your January data proves you can do 10 sessions/month when you schedule them" is useful.
+- Don't sugarcoat. If the trend is bad, say so. The user explicitly wants honesty.
+
+The dashboard Reports tab automatically picks up new `health/summary-*.md` files.
+
+See `docs/examples.md` for a reference example of the expected format and tone.

@@ -1207,23 +1207,49 @@ function renderActivityRow(container, a) {
 // ── Health History ────────────────────────────────────────────────────────────
 
 function mdToHtml(text) {
-  return text
-    .split("\n")
-    .map((line) => {
-      if (line.match(/^### .+/)) {
-        const inner = line.replace(/^### /, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-        return `<div class="md-h3">${inner}</div>`;
-      }
-      if (line.match(/^## .+/)) return "";
-      if (line.match(/^# .+/)) return "";
+  const lines = text.split("\n");
+  let html = "";
+  let inTable = false;
+  let tableRows = [];
 
-      line = line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  function flushTable() {
+    if (!tableRows.length) return;
+    const header = tableRows[0];
+    let t = `<table class="plan-table"><thead><tr>${header.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>`;
+    for (let r = 2; r < tableRows.length; r++) {
+      t += `<tr>${tableRows[r].map((c) => `<td>${c.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</td>`).join("")}</tr>`;
+    }
+    t += "</tbody></table>";
+    html += t;
+    tableRows = [];
+    inTable = false;
+  }
 
-      if (line.match(/^- /)) return `<div class="md-li">${line.replace(/^- /, "")}</div>`;
-      if (!line.trim()) return `<div class="md-spacer"></div>`;
-      return `<div class="md-p">${line}</div>`;
-    })
-    .join("\n");
+  for (let line of lines) {
+    if (line.match(/^\|/)) {
+      const cells = line.split("|").slice(1, -1).map((c) => c.trim());
+      tableRows.push(cells);
+      inTable = true;
+      continue;
+    } else if (inTable) {
+      flushTable();
+    }
+
+    if (line.match(/^### .+/)) {
+      const inner = line.replace(/^### /, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      html += `<div class="md-h3">${inner}</div>`;
+      continue;
+    }
+    if (line.match(/^## .+/) || line.match(/^# .+/)) continue;
+
+    line = line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+    if (line.match(/^- /)) { html += `<div class="md-li">${line.replace(/^- /, "")}</div>`; continue; }
+    if (!line.trim()) { html += `<div class="md-spacer"></div>`; continue; }
+    html += `<div class="md-p">${line}</div>`;
+  }
+  if (inTable) flushTable();
+  return html;
 }
 
 // Extract focus area details from the raw sections (the bullet points under each ### heading)

@@ -63,45 +63,28 @@ When the user asks "make a plan for next week/month" / "plan until <event>":
 - Count weeks until target date (if event-based)
 - Activity frequency from `python scripts/analyze.py activities`
 - All goals from `profile/goals.md` (strength, running, yoga/meditation)
-- **Recent activity types** — check `garmin/workouts/` to see what the user is already doing (e.g. running, padel). Don't suggest "building up from walks" if they're already running regularly.
-- **Existing equipment** — check `profile/preferences.md` and recent journal entries for things already owned (e.g. blood pressure monitor)
+- **Recent activity types** — check `garmin/workouts/` to see what the user is already doing. Don't prescribe ramp-ups for things they already do.
+- Journal entries for life context (work pressure, social plans, mood)
 
 ### Plan structure
 
-Save to `training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md` (automatically visible on the dashboard Plans tab):
+Save to `training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md` (automatically visible on the dashboard Plans tab).
 
-```markdown
-# Training Plan — Start Date → End Date
+**Default: keep it short.** A plan should fit on one screen unless the user asks for more detail. If they want week-by-week breakdowns, periodization, or specific exercises — do that. These are defaults, not rules. Default structure:
 
-## Goals for this period
-<specific, measurable targets based on current data>
+1. Opening context (blockquote, 2-3 sentences)
+2. "Three things that matter" — the actual plan, max 4 numbered priorities
+3. Training schedule — one simple table
+4. Brief notes on anything else relevant (few bullets, only if needed)
+5. Baseline → goal table (5-6 metrics max)
+6. One-sentence summary
 
-## Weekly template
-| Day | Activity | Focus |
-|-----|----------|-------|
-| Mon | Strength | Upper body |
-| Wed | Strength | Lower body |
-| Fri | Running  | Easy 30 min |
-| Sat | Yoga     | Flexibility + mindfulness |
-
-## Week-by-week progression
-### Week 1: ...
-### Week 2: ...
-
-## Key targets
-- Leg press: current 115kg → target Xkg
-- Chest press: break 40kg plateau
-- Running: build to X km/week
-- Steps: maintain 8k+/day
-
-## Deload / rest
-<when to back off, signs to watch for>
-```
+**By default, skip:** week-by-week breakdowns, exact weights/sets/reps (that's next-session plans), sections with nothing to say, info the user already knows. But if the user asks for detail, provide it.
 
 ### Planning principles
-- **Frequency first**: aim for the frequency target from goals before adding volume
-- **Progressive overload**: plan weight increases every 1-2 weeks for exercises that are progressing
-- **Address weaknesses**: allocate more volume to lagging muscle groups (shoulder press, chest press)
-- **Include recovery goals**: yoga/meditation sessions count toward the grounding goal
-- **Be realistic**: base frequency on what the user has actually achieved recently, not aspirational targets. If they've been training 1.5x/week, plan for 2x, not 4x
-- **Running**: check recent Garmin data for current running frequency/distance before planning. If already running, focus on consistency — don't prescribe a beginner ramp-up. Only suggest gradual return if the data shows no recent runs.
+- **Holistic**: consider sleep, stress, mental health, not just training. Sometimes "sleep more, train less" is the right plan.
+- **Realistic**: base on actual recent frequency, not aspirational. 1.5x → 2-3x, not 5x.
+- **Opinionated**: say what matters most. Don't present everything as equal.
+- **Running**: check recent data first. If already running, don't prescribe a beginner ramp-up.
+
+See `docs/examples.md` for reference examples of all content types.
