@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stride</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="grain"></div>
+
+  <header>
+    <div class="header-inner">
+      <h1>Stride</h1>
+      <nav class="nav-tabs">
+        <button class="tab active" data-section="overview">Overview</button>
+        <button class="tab" data-section="strength">Strength</button>
+        <button class="tab" data-section="sleep">Sleep</button>
+        <button class="tab" data-section="vitals">Vitals</button>
+        <button class="tab" data-section="health">Health</button>
+        <button class="tab" data-section="steps">Steps</button>
+        <button class="tab" data-section="activities">Activities</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Overview -->
+    <section class="page active" id="overview">
+      <div class="overview-grid" id="overview-grid"></div>
+      <div class="section-label" style="margin-top:2rem">Recent Activities</div>
+      <div id="overview-activities"></div>
+    </section>
+
+    <!-- Strength -->
+    <section class="page" id="strength">
+      <div class="section-label">Progression</div>
+      <div class="chart-grid" id="strength-charts"></div>
+      <div class="section-label" style="margin-top:2rem">Session Log</div>
+      <div id="strength-sessions"></div>
+    </section>
+
+    <!-- Sleep -->
+    <section class="page" id="sleep">
+      <div class="range-bar">
+        <button class="range-btn active" data-days="14">2W</button>
+        <button class="range-btn" data-days="30">1M</button>
+        <button class="range-btn" data-days="90">3M</button>
+        <button class="range-btn" data-days="365">1Y</button>
+      </div>
+      <div class="dual-chart-row">
+        <div class="chart-card wide" id="sleep-duration-card">
+          <h3>Sleep Duration</h3>
+          <div class="chart-wrap tall"><canvas id="sleep-duration-chart"></canvas></div>
+        </div>
+        <div class="chart-card wide" id="sleep-score-card">
+          <h3>Sleep Score</h3>
+          <div class="chart-wrap tall"><canvas id="sleep-score-chart"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-card wide" id="sleep-stages-card" style="margin-top:1rem">
+        <h3>Sleep Stages</h3>
+        <div class="chart-wrap tall"><canvas id="sleep-stages-chart"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Vitals -->
+    <section class="page" id="vitals">
+      <div class="range-bar">
+        <button class="range-btn active" data-days="14">2W</button>
+        <button class="range-btn" data-days="30">1M</button>
+        <button class="range-btn" data-days="90">3M</button>
+        <button class="range-btn" data-days="365">1Y</button>
+      </div>
+      <div class="dual-chart-row">
+        <div class="chart-card wide">
+          <h3>Resting Heart Rate</h3>
+          <div class="chart-wrap tall"><canvas id="rhr-chart"></canvas></div>
+        </div>
+        <div class="chart-card wide">
+          <h3>Heart Rate Variability</h3>
+          <div class="chart-wrap tall"><canvas id="hrv-chart"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-card wide" style="margin-top:1rem">
+        <h3>Stress (7-day avg)</h3>
+        <div class="chart-wrap tall"><canvas id="stress-chart"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Health -->
+    <section class="page" id="health">
+      <div id="health-history"></div>
+    </section>
+
+    <!-- Steps -->
+    <section class="page" id="steps">
+      <div class="range-bar">
+        <button class="range-btn active" data-days="14">2W</button>
+        <button class="range-btn" data-days="30">1M</button>
+        <button class="range-btn" data-days="90">3M</button>
+        <button class="range-btn" data-days="365">1Y</button>
+      </div>
+      <div class="steps-stats" id="steps-stats"></div>
+      <div class="chart-card wide" style="margin-top:1rem">
+        <h3>Daily Steps</h3>
+        <div class="chart-wrap tall"><canvas id="steps-chart"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Activities -->
+    <section class="page" id="activities">
+      <div class="dual-chart-row">
+        <div class="chart-card wide">
+          <h3>Monthly Activity Count</h3>
+          <div class="chart-wrap tall"><canvas id="monthly-chart"></canvas></div>
+        </div>
+        <div class="chart-card wide">
+          <h3>Activity Types</h3>
+          <div class="chart-wrap tall"><canvas id="types-chart"></canvas></div>
+        </div>
+      </div>
+      <div class="section-label" style="margin-top:2rem">All Activities</div>
+      <div class="range-bar">
+        <button class="range-btn" data-days="30">1M</button>
+        <button class="range-btn active" data-days="90">3M</button>
+        <button class="range-btn" data-days="365">1Y</button>
+      </div>
+      <div id="activities-list"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

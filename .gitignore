@@ -1,0 +1,22 @@
+# Credentials
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+
+# Personal data — synced from Garmin
+garmin/
+
+# Personal data — manual entries
+journal/
+training/log/
+health/
+profile/
