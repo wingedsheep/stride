@@ -268,6 +268,11 @@ function parseHealthSummary(filepath) {
       continue;
     }
 
+    if (currentFocus && line.includes("**Current:")) {
+      const currentMatch = line.match(/\*\*Current:\s*(.+)\*\*/);
+      if (currentMatch) currentFocus.current = currentMatch[1];
+    }
+
     if (currentFocus && line.includes("**Target:")) {
       const targetMatch = line.match(/\*\*Target:\s*(.+)\*\*/);
       if (targetMatch) currentFocus.target = targetMatch[1];

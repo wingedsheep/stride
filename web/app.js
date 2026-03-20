@@ -563,6 +563,29 @@ function mdToHtml(text) {
     .join("\n");
 }
 
+// Extract focus area details from the raw sections (the bullet points under each ### heading)
+function extractFocusDetails(sections) {
+  const body = sections["Focus Areas"];
+  if (!body) return {};
+  const details = {};
+  let currentKey = null;
+  for (const line of body.split("\n")) {
+    const headingMatch = line.match(/^### \d+\.\s+(.+)/);
+    if (headingMatch) {
+      currentKey = headingMatch[1];
+      details[currentKey] = [];
+      continue;
+    }
+    if (currentKey && line.startsWith("- ")) {
+      // Skip Current/Target/Advice lines — we render those separately
+      if (line.match(/\*\*Current:/) || line.match(/\*\*Target:/) || line.match(/\*\*Advice:/)) continue;
+      details[currentKey] = details[currentKey] || [];
+      details[currentKey].push(line.replace(/^- /, "").replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"));
+    }
+  }
+  return details;
+}
+
 async function renderHealthHistory() {
   const summaries = await fetch("/api/health-summaries").then((r) => r.json());
   const container = document.getElementById("health-history");
@@ -577,24 +600,59 @@ async function renderHealthHistory() {
     report.className = "report";
     report.style.animationDelay = `${i * 0.08}s`;
 
-    // Focus items with numbers
-    const focusHtml = s.focusAreas.map((f, fi) => `
-      <div class="focus-item">
-        <span class="focus-num">${fi + 1}</span>
-        <div class="focus-title">${f.title}</div>
-        <div class="focus-target">${f.target || ""}</div>
+    const focusDetails = extractFocusDetails(s.sections || {});
+
+    // Parse advice lines from sections
+    const adviceByTitle = {};
+    const focusBody = (s.sections || {})["Focus Areas"] || "";
+    let curTitle = null;
+    for (const line of focusBody.split("\n")) {
+      const hm = line.match(/^### \d+\.\s+(.+)/);
+      if (hm) { curTitle = hm[1]; continue; }
+      if (curTitle && line.match(/\*\*Advice:/)) {
+        const m = line.match(/\*\*Advice:\s*(.+)\*\*/);
+        if (m) adviceByTitle[curTitle] = m[1];
+      }
+    }
+
+    // Focus cards — compact with expandable details
+    const focusHtml = s.focusAreas.map((f, fi) => {
+      const details = focusDetails[f.title] || [];
+      const advice = adviceByTitle[f.title];
+      const detailId = `focus-detail-${i}-${fi}`;
+
+      return `
+        <div class="focus-card">
+          <div class="focus-card-header">
+            <span class="focus-num">${fi + 1}</span>
+            <div class="focus-card-title">${f.title}</div>
+          </div>
+          <div class="focus-card-metrics">
+            ${f.current ? `<div class="focus-current">${f.current}</div>` : ""}
+            ${f.target ? `<div class="focus-target-line"><span class="focus-target-label">Target</span> ${f.target}</div>` : ""}
+          </div>
+          ${details.length || advice ? `
+            <button class="focus-detail-toggle" data-target="${detailId}">Details</button>
+            <div class="focus-detail collapsed" id="${detailId}">
+              ${details.map((d) => `<div class="md-li">${d}</div>`).join("")}
+              ${advice ? `<div class="focus-advice">${advice}</div>` : ""}
+            </div>
+          ` : ""}
+        </div>
+      `;
+    }).join("");
+
+    // Detail sections — skip Focus Areas (rendered above)
+    const detailSections = Object.entries(s.sections || {})
+      .filter(([title]) => title !== "Focus Areas");
+
+    // Split into columns: vitals/BP on left, bloodwork/good on right
+    const sectionsHtml = detailSections.map(([title, body]) => `
+      <div class="report-section">
+        <div class="report-section-title">${title}</div>
+        ${mdToHtml(body)}
       </div>
     `).join("");
-
-    // Detail sections (skip "Focus Areas")
-    const sectionsHtml = Object.entries(s.sections || {})
-      .filter(([title]) => title !== "Focus Areas")
-      .map(([title, body]) => `
-        <div class="report-section">
-          <div class="report-section-title">${title}</div>
-          ${mdToHtml(body)}
-        </div>
-      `).join("");
 
     const bodyId = `report-body-${i}`;
     const isFirst = i === 0;
@@ -606,13 +664,13 @@ async function renderHealthHistory() {
           <div class="report-title">Health Summary</div>
           <div class="report-overall">${s.overall || ""}</div>
         </div>
-        ${s.focusAreas.length ? `<div class="report-focus">${focusHtml}</div>` : ""}
+        ${s.focusAreas.length ? `<div class="report-focus-grid">${focusHtml}</div>` : ""}
         ${sectionsHtml ? `
           <button class="report-toggle" data-target="${bodyId}">
             ${isFirst ? "Hide details" : "Show details"}
           </button>
           <div class="report-body ${isFirst ? "" : "collapsed"}" id="${bodyId}">
-            ${sectionsHtml}
+            <div class="report-sections-grid">${sectionsHtml}</div>
           </div>
         ` : ""}
       </div>
@@ -622,11 +680,15 @@ async function renderHealthHistory() {
   });
 
   // Toggle handlers
-  timeline.querySelectorAll(".report-toggle").forEach((btn) => {
+  timeline.querySelectorAll(".report-toggle, .focus-detail-toggle").forEach((btn) => {
     btn.addEventListener("click", () => {
       const body = document.getElementById(btn.dataset.target);
       const collapsed = body.classList.toggle("collapsed");
-      btn.textContent = collapsed ? "Show details" : "Hide details";
+      if (btn.classList.contains("report-toggle")) {
+        btn.textContent = collapsed ? "Show details" : "Hide details";
+      } else {
+        btn.textContent = collapsed ? "Details" : "Less";
+      }
     });
   });
 }

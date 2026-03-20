@@ -203,49 +203,131 @@ main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
   color: var(--ink-soft); line-height: 1.6;
 }
 
-.report-focus {
+.report-focus-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0; border-bottom: 1px solid var(--sand-dark);
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
 }
 
-.focus-item {
+.focus-card {
   padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--sand-dark);
   border-right: 1px solid var(--sand-dark);
   position: relative;
 }
 
-.focus-item:last-child { border-right: none; }
+.focus-card:nth-child(2n) { border-right: none; }
+.focus-card:nth-last-child(-n+2) { border-bottom: none; }
 
-.focus-item::before {
+.focus-card::before {
   content: "";
   position: absolute; top: 0; left: 0;
-  width: 100%; height: 2px;
+  width: 3px; height: 100%;
 }
 
-.focus-item:nth-child(1)::before { background: var(--terracotta); }
-.focus-item:nth-child(2)::before { background: var(--clay); }
-.focus-item:nth-child(3)::before { background: var(--olive); }
-.focus-item:nth-child(4)::before { background: var(--sea); }
+.focus-card:nth-child(1)::before { background: var(--terracotta); }
+.focus-card:nth-child(2)::before { background: var(--clay); }
+.focus-card:nth-child(3)::before { background: var(--olive); }
+.focus-card:nth-child(4)::before { background: var(--sea); }
 
-.focus-item .focus-num {
+.focus-card-header {
+  display: flex; align-items: baseline; gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.focus-card .focus-num {
   font-family: "DM Serif Display", serif;
-  font-size: 1.4rem; color: var(--sand-dark);
-  float: right; margin-top: -0.2rem; line-height: 1;
+  font-size: 1.1rem; color: var(--sand-dark); line-height: 1;
 }
 
-.focus-item .focus-title {
+.focus-card-title {
   font-size: 0.78rem; font-weight: 600;
-  color: var(--ink); margin-bottom: 0.25rem;
+  color: var(--ink); text-transform: capitalize;
 }
 
-.focus-item .focus-target {
+.focus-card-metrics {
+  margin-bottom: 0.3rem;
+}
+
+.focus-card .focus-current {
+  font-size: 0.82rem; font-weight: 500;
+  color: var(--ink); line-height: 1.5;
+  margin-bottom: 0.3rem;
+}
+
+.focus-target-line {
   font-size: 0.72rem; font-weight: 400;
   color: var(--ink-muted); line-height: 1.45;
 }
 
+.focus-target-label {
+  display: inline-block;
+  background: var(--olive);
+  color: var(--white);
+  font-size: 0.6rem; font-weight: 600;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+
+.focus-detail-toggle {
+  background: none; border: none; cursor: pointer;
+  font-family: "IBM Plex Sans", sans-serif;
+  font-size: 0.68rem; font-weight: 500;
+  color: var(--ink-muted);
+  padding: 0.2rem 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+
+.focus-detail-toggle:hover { color: var(--ink-soft); }
+
+.focus-detail {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--sand);
+}
+
+.focus-detail.collapsed { display: none; }
+
+.focus-detail .md-li {
+  font-size: 0.72rem; font-weight: 300;
+  color: var(--ink-muted); line-height: 1.55;
+  padding: 0.08rem 0 0.08rem 0.8rem;
+  position: relative;
+}
+
+.focus-detail .md-li::before {
+  content: "";
+  position: absolute; left: 0; top: 0.45rem;
+  width: 3px; height: 3px;
+  background: var(--clay); border-radius: 50%;
+}
+
+.focus-detail .md-li strong {
+  font-weight: 500; color: var(--ink-soft);
+}
+
+.focus-advice {
+  font-size: 0.72rem; font-weight: 400;
+  color: var(--sea); line-height: 1.5;
+  margin-top: 0.3rem;
+  padding-left: 0.8rem;
+  border-left: 2px solid var(--sea);
+  font-style: italic;
+}
+
 .report-body {
   padding: 1.2rem 1.6rem 1.4rem;
+}
+
+.report-sections-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 2rem;
 }
 
 .report-body .report-section {
@@ -496,6 +578,11 @@ main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
 
 @media (max-width: 768px) {
   .dual-chart-row { grid-template-columns: 1fr; }
+  .report-focus-grid { grid-template-columns: 1fr; }
+  .focus-card { border-right: none !important; }
+  .focus-card:nth-last-child(-n+2) { border-bottom: 1px solid var(--sand-dark); }
+  .focus-card:last-child { border-bottom: none; }
+  .report-sections-grid { grid-template-columns: 1fr; }
   .activity-row { grid-template-columns: 70px 1fr 60px; }
   .activity-row .a-duration,
   .activity-row .a-cal { display: none; }

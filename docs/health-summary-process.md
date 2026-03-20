@@ -22,8 +22,9 @@ Use this format in `health/summary-YYYY-MM-DD.md`:
 
 1. **`## Overall`** — one-paragraph honest assessment
 2. **`## Focus Areas`** — numbered `###` subsections, each with:
-   - Actual numbers and trend direction
-   - A `**Target:**` line
+   - A `**Current:**` line — key metric snapshot (e.g. "5.6 hrs avg, score 65"). This is displayed prominently on the dashboard focus cards
+   - Actual numbers and trend direction in bullet points
+   - A `**Target:**` line — what to aim for
    - An `**Advice:**` line with concrete actionable suggestions
 3. **`## Vitals Trends`** — resting HR, HRV, stress with period comparisons
 4. **`## Blood Pressure`** — readings and monitoring advice
