@@ -34,6 +34,12 @@ function baseOpts(yLabel, yCallback) {
         titleFont: { ...FONT, size: 11, weight: "400" },
         bodyFont: { ...FONT, size: 12, weight: "600" },
         padding: 10, cornerRadius: 6, displayColors: false,
+        filter: (item, data) => {
+          const ds = data.datasets || [];
+          const hasRolling = ds.some((d) => d._rollingValues);
+          if (!hasRolling) return true;
+          return !!ds[item.datasetIndex]?._rollingValues;
+        },
       },
     },
     scales: {
@@ -87,6 +93,49 @@ function avg(arr) {
   return Math.round(arr.reduce((s, v) => s + v, 0) / arr.length * 10) / 10;
 }
 
+function rollingWindow(days) {
+  if (days <= 14) return 3;
+  if (days <= 30) return 7;
+  if (days <= 90) return 14;
+  return 30;
+}
+
+function rollingAvg(values, windowSize) {
+  return values.map((_, i) => {
+    const start = Math.max(0, i - windowSize + 1);
+    const slice = values.slice(start, i + 1).filter((v) => v != null);
+    return slice.length ? Math.round(slice.reduce((a, b) => a + b, 0) / slice.length * 10) / 10 : null;
+  });
+}
+
+function makeRollingDataset(labels, values, windowSize, color) {
+  const rolled = rollingAvg(values, windowSize);
+  return {
+    label: `${windowSize}d avg`,
+    data: labels.map((l, i) => ({ x: l, y: rolled[i] })),
+    borderColor: color,
+    borderWidth: 2.5,
+    pointRadius: 0,
+    pointHoverRadius: 4,
+    fill: false,
+    tension: 0.35,
+    order: 0,
+    _rollingValues: rolled,
+  };
+}
+
+// Tooltip filter: only show rolling avg dataset when both daily + rolling exist
+function rollingTooltipFilter(item, chart) {
+  const datasets = chart.datasets || [];
+  const hasRolling = datasets.some((d) => d._rollingValues);
+  if (!hasRolling) return true;
+  return !!datasets[item.datasetIndex]?._rollingValues;
+}
+
+function rollingTooltipOpts() {
+  return { filter: rollingTooltipFilter };
+}
+
 // Chart instance registry for cleanup on re-render
 const charts = {};
 function destroyChart(id) {
@@ -95,6 +144,421 @@ function destroyChart(id) {
 function registerChart(id, chart) {
   charts[id] = chart;
 }
+
+// ── Session Detail ───────────────────────────────────────────────────────────
+
+async function openSession(dateStr) {
+  const data = await fetch(`/api/session/${dateStr}`).then((r) => r.json());
+  const panel = document.getElementById("session-panel");
+
+  // Title from first Garmin activity or training note
+  const mainActivity = data.garminActivities[0];
+  const mainNote = data.trainingNotes[0];
+  const title = mainActivity?.title || mainNote?.title || `Session — ${dateStr}`;
+
+  // Garmin metrics
+  let metricsHtml = "";
+  if (mainActivity) {
+    const avgSpeedKmh = mainActivity.avgSpeed ? Math.round(mainActivity.avgSpeed * 3.6 * 10) / 10 : null;
+    const maxSpeedKmh = mainActivity.maxSpeed ? Math.round(mainActivity.maxSpeed * 3.6 * 10) / 10 : null;
+
+    const metrics = [
+      mainActivity.duration ? { label: "Duration", value: mainActivity.duration, unit: " min" } : null,
+      mainActivity.distance ? { label: "Distance", value: mainActivity.distance, unit: " km" } : null,
+      avgSpeedKmh ? { label: "Avg Speed", value: avgSpeedKmh, unit: " km/h", class: "speed-metric" } : null,
+      maxSpeedKmh ? { label: "Max Speed", value: maxSpeedKmh, unit: " km/h", class: "speed-metric" } : null,
+      mainActivity.calories ? { label: "Calories", value: Math.round(mainActivity.calories), unit: " kcal" } : null,
+      mainActivity.avgHR ? { label: "Avg HR", value: mainActivity.avgHR, unit: " bpm" } : null,
+      mainActivity.maxHR ? { label: "Max HR", value: mainActivity.maxHR, unit: " bpm" } : null,
+      mainActivity.avgCadence ? { label: "Cadence", value: Math.round(mainActivity.avgCadence), unit: " spm" } : null,
+      mainActivity.elevationGain ? { label: "Elev Gain", value: Math.round(mainActivity.elevationGain), unit: " m" } : null,
+    ].filter(Boolean);
+
+    metricsHtml = `
+      <div class="detail-section">
+        <div class="detail-section-title">Garmin Data</div>
+        <div class="detail-metrics" id="detail-metrics-grid">
+          ${metrics.map((m) => `
+            <div class="detail-metric${m.class ? ` ${m.class}` : ""}">
+              <div class="dm-label">${m.label}</div>
+              <div class="dm-value">${m.value}<span>${m.unit}</span></div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  // Multiple Garmin activities on same day
+  let extraActivities = "";
+  if (data.garminActivities.length > 1) {
+    extraActivities = data.garminActivities.slice(1).map((a) => `
+      <div class="detail-section">
+        <div class="detail-section-title">${a.title}</div>
+        <div class="detail-metrics">
+          ${[
+            a.duration ? { label: "Duration", value: a.duration, unit: " min" } : null,
+            a.distance ? { label: "Distance", value: a.distance, unit: " km" } : null,
+            a.calories ? { label: "Calories", value: Math.round(a.calories), unit: " kcal" } : null,
+          ].filter(Boolean).map((m) => `
+            <div class="detail-metric">
+              <div class="dm-label">${m.label}</div>
+              <div class="dm-value">${m.value}<span>${m.unit}</span></div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  // Lap charts for activities with split data
+  let lapChartsHtml = "";
+  const activityWithLaps = data.garminActivities.find((a) => a.laps && a.laps.length > 1);
+  if (activityWithLaps) {
+    const isRunning = (activityWithLaps.type || "").includes("running");
+    lapChartsHtml = `
+      <div class="detail-section">
+        <div class="detail-section-title" style="display:flex;align-items:center;justify-content:space-between">
+          Per-km splits
+          <div class="range-bar" style="margin:0" id="pace-mode-bar">
+            <button class="range-btn active" data-mode="speed">Speed</button>
+            <button class="range-btn" data-mode="pace">Pace</button>
+          </div>
+        </div>
+        <div class="detail-chart-row">
+          <div class="detail-mini-chart" style="grid-column:span 2">
+            <div class="dmc-label" id="pace-chart-label">${isRunning ? "Pace (min/km)" : "Speed (km/h)"}</div>
+            <canvas id="detail-pace-chart" style="height:100px !important"></canvas>
+          </div>
+        </div>
+        <div class="detail-chart-row" style="margin-top:0.5rem">
+          <div class="detail-mini-chart">
+            <div class="dmc-label">Heart Rate (bpm)</div>
+            <canvas id="detail-lap-hr-chart" style="height:80px !important"></canvas>
+          </div>
+          <div class="detail-mini-chart">
+            <div class="dmc-label">Elevation (m)</div>
+            <canvas id="detail-lap-elev-chart" style="height:80px !important"></canvas>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Training notes (exercises)
+  let exercisesHtml = "";
+  for (const note of data.trainingNotes) {
+    const exercises = note.exercises
+      .filter((e) => !e.name.toLowerCase().includes("roeien") && !e.name.toLowerCase().includes("hardlopen"))
+      .map((e) => {
+        const detail = e.raw.includes(":") ? e.raw.split(":").slice(1).join(":").trim() : "";
+        return `
+          <div class="detail-exercise">
+            <span class="de-name">${e.canonical}</span>
+            <span class="de-detail">${detail}</span>
+          </div>
+        `;
+      }).join("");
+
+    const warmup = note.exercises
+      .filter((e) => e.name.toLowerCase().includes("roeien") || e.name.toLowerCase().includes("hardlopen"))
+      .map((e) => e.raw).join(", ");
+
+    exercisesHtml += `
+      <div class="detail-section">
+        <div class="detail-section-title">Exercises</div>
+        ${warmup ? `<div style="font-size:0.72rem;color:var(--ink-muted);margin-bottom:0.4rem">Warm-up: ${warmup}</div>` : ""}
+        ${exercises}
+        ${note.notes ? `<div class="detail-notes" style="margin-top:0.6rem">${note.notes}</div>` : ""}
+      </div>
+    `;
+  }
+
+  // Day context (sleep, vitals, steps)
+  let contextHtml = "";
+  const contextItems = [];
+  if (data.sleep) {
+    if (data.sleep.totalHrs) contextItems.push({ label: "Sleep", value: `${data.sleep.totalHrs} hrs` });
+    if (data.sleep.score) contextItems.push({ label: "Sleep score", value: data.sleep.score });
+    if (data.sleep.deep) contextItems.push({ label: "Deep sleep", value: `${data.sleep.deep} hrs` });
+    if (data.sleep.rem) contextItems.push({ label: "REM", value: `${data.sleep.rem} hrs` });
+  }
+  if (data.vitals) {
+    if (data.vitals.restingHR) contextItems.push({ label: "Resting HR", value: `${data.vitals.restingHR} bpm` });
+    if (data.vitals.hrvNight) contextItems.push({ label: "HRV", value: `${data.vitals.hrvNight} ms` });
+    if (data.vitals.avgStress) contextItems.push({ label: "Avg stress", value: data.vitals.avgStress });
+  }
+  if (data.steps) contextItems.push({ label: "Steps", value: data.steps.toLocaleString() });
+
+  if (contextItems.length) {
+    contextHtml = `
+      <div class="detail-section">
+        <div class="detail-section-title">That Day</div>
+        <div class="detail-context">
+          ${contextItems.map((c) => `
+            <div class="detail-context-item">
+              <span class="dc-label">${c.label}</span>
+              <span class="dc-value">${c.value}</span>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  // Journal
+  let journalHtml = "";
+  if (data.journal) {
+    const journalBody = data.journal.split("\n").filter((l) => !l.startsWith("# ")).join("\n").trim();
+    if (journalBody) {
+      journalHtml = `
+        <div class="detail-section">
+          <div class="detail-section-title">Journal</div>
+          <div class="detail-journal">${journalBody.replace(/^##\s+/gm, "").replace(/^- /gm, "· ")}</div>
+        </div>
+      `;
+    }
+  }
+
+  // Sparkline charts placeholder
+  const chartsHtml = `
+    <div class="detail-chart-row">
+      <div class="detail-mini-chart">
+        <div class="dmc-label">Sleep (7 days around)</div>
+        <canvas id="detail-sleep-spark"></canvas>
+      </div>
+      <div class="detail-mini-chart">
+        <div class="dmc-label">HRV (7 days around)</div>
+        <canvas id="detail-hrv-spark"></canvas>
+      </div>
+    </div>
+  `;
+
+  panel.innerHTML = `
+    <button class="detail-close" id="detail-close">×</button>
+    <div class="detail-date">${formatDate(dateStr)}</div>
+    <div class="detail-title">${title}</div>
+    ${metricsHtml}
+    ${lapChartsHtml}
+    ${extraActivities}
+    ${exercisesHtml}
+    ${contextHtml}
+    ${chartsHtml}
+    ${journalHtml}
+  `;
+
+  const overlay = document.getElementById("session-overlay");
+  overlay.classList.remove("hidden");
+
+  document.getElementById("detail-close").addEventListener("click", closeSession);
+  document.getElementById("overlay-backdrop").addEventListener("click", closeSession);
+
+  // Render lap charts
+  if (activityWithLaps) {
+    const laps = activityWithLaps.laps;
+    const isRunning = (activityWithLaps.type || "").includes("running");
+    const lapLabels = laps.map((l) => `${l.index}`);
+
+    const miniOpts = {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: "#2c2825", bodyFont: { ...FONT, size: 11, weight: "600" },
+        padding: 8, cornerRadius: 5, displayColors: false,
+      }},
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { ...FONT, size: 9 }, color: "#8a837c" }, border: { display: false } },
+        y: { grid: { color: "rgba(0,0,0,0.04)", drawTicks: false }, ticks: { font: { ...FONT, size: 9 }, color: "#8a837c", padding: 4 }, border: { display: false } },
+      },
+    };
+
+    function speedToKmh(ms) { return ms ? Math.round(ms * 3.6 * 10) / 10 : 0; }
+    function speedToPace(ms) { return ms ? Math.round(1000 / ms / 60 * 100) / 100 : 0; }
+    function formatPace(decimalMin) {
+      const mins = Math.floor(decimalMin);
+      const secs = Math.round((decimalMin - mins) * 60);
+      return `${mins}:${secs.toString().padStart(2, "0")}`;
+    }
+
+    function renderPaceChart(mode) {
+      destroyChart("detail-pace");
+      const isPace = mode === "pace";
+      const values = laps.map((l) => isPace ? speedToPace(l.avgSpeed) : speedToKmh(l.avgSpeed));
+      const avgVal = values.reduce((a, b) => a + b, 0) / values.length;
+      const label = document.getElementById("pace-chart-label");
+      if (label) label.textContent = isPace ? "Pace (min/km)" : "Speed (km/h)";
+
+      const paceOpts = JSON.parse(JSON.stringify(miniOpts));
+      if (isPace) {
+        paceOpts.scales.y.reverse = true;
+        paceOpts.plugins.tooltip.callbacks = { label: (i) => formatPace(i.parsed.y) + " /km" };
+      } else {
+        paceOpts.plugins.tooltip.callbacks = { label: (i) => i.parsed.y + " km/h" };
+      }
+
+      registerChart("detail-pace", new Chart(document.getElementById("detail-pace-chart"), {
+        type: "bar",
+        data: {
+          labels: lapLabels,
+          datasets: [{
+            data: values,
+            backgroundColor: values.map((v) => isPace ? (v < avgVal ? PALETTE.olive + "90" : PALETTE.terracotta + "70") : (v > avgVal ? PALETTE.olive + "90" : PALETTE.terracotta + "70")),
+            borderRadius: 3, borderSkipped: false,
+          }],
+        },
+        options: paceOpts,
+      }));
+    }
+
+    function updateSpeedMetrics(mode) {
+      const isPace = mode === "pace";
+      document.querySelectorAll(".speed-metric").forEach((el) => {
+        const label = el.querySelector(".dm-label");
+        const value = el.querySelector(".dm-value");
+        if (!label || !value) return;
+
+        const isAvg = label.textContent.includes("Avg");
+        const speedMs = isAvg ? activityWithLaps.avgSpeed || mainActivity.avgSpeed : activityWithLaps.maxSpeed || mainActivity.maxSpeed;
+        if (!speedMs) return;
+
+        if (isPace) {
+          const totalSec = 1000 / speedMs;
+          const mins = Math.floor(totalSec / 60);
+          const secs = Math.round(totalSec % 60);
+          label.textContent = isAvg ? "Avg Pace" : "Max Pace";
+          value.innerHTML = `${mins}:${secs.toString().padStart(2, "0")}<span> /km</span>`;
+        } else {
+          const kmh = Math.round(speedMs * 3.6 * 10) / 10;
+          label.textContent = isAvg ? "Avg Speed" : "Max Speed";
+          value.innerHTML = `${kmh}<span> km/h</span>`;
+        }
+      });
+    }
+
+    renderPaceChart("speed");
+
+    // Pace/speed toggle — updates both chart and metrics
+    const modeBar = document.getElementById("pace-mode-bar");
+    if (modeBar) {
+      modeBar.querySelectorAll(".range-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          modeBar.querySelectorAll(".range-btn").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          renderPaceChart(btn.dataset.mode);
+          updateSpeedMetrics(btn.dataset.mode);
+        });
+      });
+    }
+
+    // HR per lap
+    const hrValues = laps.map((l) => l.avgHR).filter(Boolean);
+    if (hrValues.length) {
+      const hrOpts = JSON.parse(JSON.stringify(miniOpts));
+      hrOpts.plugins.tooltip.callbacks = { label: (i) => `${i.parsed.y} bpm` };
+      new Chart(document.getElementById("detail-lap-hr-chart"), {
+        type: "line",
+        data: {
+          labels: lapLabels.slice(0, hrValues.length),
+          datasets: [{
+            data: hrValues,
+            borderColor: PALETTE.terracotta, backgroundColor: PALETTE.terracotta + "20",
+            borderWidth: 2, pointRadius: 3, pointBackgroundColor: PALETTE.terracotta,
+            fill: true, tension: 0.3,
+          }],
+        },
+        options: hrOpts,
+      });
+    }
+
+    // Elevation per lap
+    const elevGain = laps.map((l) => l.elevationGain || 0);
+    const elevLoss = laps.map((l) => -(l.elevationLoss || 0));
+    if (elevGain.some((v) => v > 0) || elevLoss.some((v) => v < 0)) {
+      const elevOpts = JSON.parse(JSON.stringify(miniOpts));
+      elevOpts.plugins.tooltip.callbacks = { label: (i) => `${i.parsed.y > 0 ? "+" : ""}${i.parsed.y} m` };
+      elevOpts.scales.y.stacked = true;
+      elevOpts.scales.x.stacked = true;
+      new Chart(document.getElementById("detail-lap-elev-chart"), {
+        type: "bar",
+        data: {
+          labels: lapLabels,
+          datasets: [
+            { label: "Gain", data: elevGain, backgroundColor: PALETTE.olive + "80", borderRadius: 2, borderSkipped: false },
+            { label: "Loss", data: elevLoss, backgroundColor: PALETTE.terracotta + "60", borderRadius: 2, borderSkipped: false },
+          ],
+        },
+        options: elevOpts,
+      });
+    }
+  }
+
+  // Render sparkline charts with surrounding days
+  const [sleepContext, vitalsContext] = await Promise.all([
+    fetch(`/api/sleep?days=30`).then((r) => r.json()),
+    fetch(`/api/vitals?days=30`).then((r) => r.json()),
+  ]);
+
+  // Find 3 days before and after the session date
+  const sleepIdx = sleepContext.findIndex((d) => d.date === dateStr);
+  const vitalsIdx = vitalsContext.findIndex((d) => d.date === dateStr);
+  const sparkRange = 3;
+
+  const sleepSlice = sleepContext.slice(Math.max(0, sleepIdx - sparkRange), sleepIdx + sparkRange + 1);
+  const vitalsSlice = vitalsContext.slice(Math.max(0, vitalsIdx - sparkRange), vitalsIdx + sparkRange + 1);
+
+  const sparkOpts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+    scales: {
+      x: { display: false },
+      y: { display: false },
+    },
+    elements: { point: { radius: 0 } },
+  };
+
+  if (sleepSlice.length > 1) {
+    new Chart(document.getElementById("detail-sleep-spark"), {
+      type: "bar",
+      data: {
+        labels: sleepSlice.map((d) => d.date),
+        datasets: [{
+          data: sleepSlice.map((d) => d.totalHrs),
+          backgroundColor: sleepSlice.map((d) =>
+            d.date === dateStr ? PALETTE.terracotta : d.totalHrs >= 7 ? PALETTE.olive + "70" : PALETTE.clay + "60"
+          ),
+          borderRadius: 3, borderSkipped: false,
+        }],
+      },
+      options: { ...sparkOpts, scales: { ...sparkOpts.scales, y: { display: false, min: 0 } } },
+    });
+  }
+
+  if (vitalsSlice.length > 1) {
+    const hrvSlice = vitalsSlice.filter((d) => d.hrvNight);
+    new Chart(document.getElementById("detail-hrv-spark"), {
+      type: "line",
+      data: {
+        datasets: [{
+          data: hrvSlice.map((d) => ({ x: d.date, y: d.hrvNight })),
+          borderColor: PALETTE.olive,
+          borderWidth: 2,
+          pointRadius: hrvSlice.map((d) => d.date === dateStr ? 5 : 2),
+          pointBackgroundColor: hrvSlice.map((d) => d.date === dateStr ? PALETTE.terracotta : PALETTE.olive),
+          fill: false, tension: 0.3,
+        }],
+      },
+      options: { ...sparkOpts, scales: { x: { display: false, type: "time" }, y: { display: false } } },
+    });
+  }
+}
+
+function closeSession() {
+  document.getElementById("session-overlay").classList.add("hidden");
+}
+
+// Close on escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeSession();
+});
 
 // ── Navigation ───────────────────────────────────────────────────────────────
 
@@ -264,7 +728,9 @@ function createStrengthChart(container, name, dataPoints, color) {
 function renderSession(container, session, index) {
   const card = document.createElement("div");
   card.className = "session-card";
+  card.dataset.date = session.date;
   card.style.animationDelay = `${0.04 * index}s`;
+  card.addEventListener("click", () => openSession(session.date));
 
   const exercises = session.exercises
     .filter((e) => !e.name.toLowerCase().includes("roeien") && !e.name.toLowerCase().includes("hardlopen"))
@@ -286,42 +752,133 @@ function renderSession(container, session, index) {
   container.appendChild(card);
 }
 
-// ── Sleep ────────────────────────────────────────────────────────────────────
+// ── Recovery (Sleep + Body Battery + HRV) ────────────────────────────────────
 
-async function renderSleep(days = 14) {
-  const data = await fetch(`/api/sleep?days=${days}`).then((r) => r.json());
+async function renderRecovery(days = 14) {
+  const [sleepData, vitalsData] = await Promise.all([
+    fetch(`/api/sleep?days=${days}`).then((r) => r.json()),
+    fetch(`/api/vitals?days=${days}`).then((r) => r.json()),
+  ]);
 
-  // Duration chart
+  const w = rollingWindow(days);
+  const showRolling = sleepData.length > w;
+  const legendWithRolling = {
+    display: true, position: "bottom",
+    labels: { boxWidth: 12, boxHeight: 2, padding: 8, font: { ...FONT, size: 10, weight: "300" }, color: "#8a837c" },
+  };
+
+  // Duration chart — bars for daily + line for rolling avg
   destroyChart("sleep-dur");
   const durOpts = baseOpts("hrs", (v) => v + "h");
-  durOpts.plugins.tooltip.callbacks = {
-    label: (item) => `${item.parsed.y} hrs`,
-  };
+  const durDatasets = [{
+    type: "bar", label: "Daily",
+    data: sleepData.map((d) => d.totalHrs),
+    backgroundColor: sleepData.map((d) => d.totalHrs >= 7 ? PALETTE.olive + "70" : d.totalHrs >= 6 ? PALETTE.clay + "50" : PALETTE.terracotta + "40"),
+    borderRadius: 3, borderSkipped: false, order: 1,
+  }];
+  if (showRolling) {
+    const rolled = rollingAvg(sleepData.map((d) => d.totalHrs), w);
+    durDatasets.push({
+      type: "line", label: `${w}d avg`,
+      data: rolled,
+      borderColor: PALETTE.sea, borderWidth: 2.5,
+      pointRadius: 0, pointHoverRadius: 4,
+      fill: false, tension: 0.35, order: 0,
+      _rollingValues: rolled,
+    });
+    durOpts.plugins.legend = legendWithRolling;
+  }
   registerChart("sleep-dur", new Chart(document.getElementById("sleep-duration-chart"), {
     type: "bar",
-    data: {
-      labels: data.map((d) => d.date),
-      datasets: [{
-        data: data.map((d) => d.totalHrs),
-        backgroundColor: data.map((d) => d.totalHrs >= 7 ? PALETTE.olive + "90" : d.totalHrs >= 6 ? PALETTE.clay + "90" : PALETTE.terracotta + "90"),
-        borderRadius: 4, borderSkipped: false,
-      }],
-    },
-    options: { ...durOpts, scales: { ...durOpts.scales, y: { ...durOpts.scales.y, min: 0, max: 12 } } },
+    data: { labels: sleepData.map((d) => d.date), datasets: durDatasets },
+    options: { ...durOpts, scales: { ...durOpts.scales, y: { ...durOpts.scales.y, min: 0 } } },
   }));
 
   // Score chart
   destroyChart("sleep-score");
   const scoreOpts = baseOpts("score");
+  const scoreFiltered = sleepData.filter((d) => d.score);
+  const scoreDatasets = [
+    makeDataset(scoreFiltered.map((d) => ({ x: d.date, y: d.score })), PALETTE.sea + "50", { label: "Daily", borderWidth: 1.5, pointRadius: scoreFiltered.length > 60 ? 0 : 2, fill: false, order: 1 }),
+  ];
+  if (showRolling) {
+    scoreDatasets.push(makeRollingDataset(scoreFiltered.map((d) => d.date), scoreFiltered.map((d) => d.score), w, PALETTE.sea));
+    scoreOpts.plugins.legend = legendWithRolling;
+  }
   registerChart("sleep-score", new Chart(document.getElementById("sleep-score-chart"), {
     type: "line",
-    data: {
-      datasets: [makeDataset(
-        data.filter((d) => d.score).map((d) => ({ x: d.date, y: d.score })),
-        PALETTE.sea,
-      )],
-    },
+    data: { datasets: scoreDatasets },
     options: { ...scoreOpts, scales: { ...scoreOpts.scales, y: { ...scoreOpts.scales.y, min: 0, max: 100 } } },
+  }));
+
+  // Body battery chart — rolling avg of the peak value
+  destroyChart("bb");
+  const bbData = vitalsData.filter((d) => d.bodyBattery);
+  const bbOpts = baseOpts("battery");
+  const bbDatasets = [
+    makeDataset(bbData.map((d) => ({ x: d.date, y: d.bodyBattery.max })), PALETTE.olive + "50", { label: "Peak", borderWidth: 1.5, pointRadius: bbData.length > 60 ? 0 : 2, fill: false, order: 1 }),
+    makeDataset(bbData.map((d) => ({ x: d.date, y: d.bodyBattery.min })), PALETTE.terracotta + "50", { label: "Low", borderWidth: 1.5, pointRadius: 0, fill: false, order: 1 }),
+  ];
+  if (showRolling) {
+    bbDatasets.push(makeRollingDataset(bbData.map((d) => d.date), bbData.map((d) => d.bodyBattery.max), w, PALETTE.olive));
+  }
+  bbOpts.plugins.legend = legendWithRolling;
+  registerChart("bb", new Chart(document.getElementById("bb-chart"), {
+    type: "line",
+    data: { datasets: bbDatasets },
+    options: { ...bbOpts, scales: { ...bbOpts.scales, y: { ...bbOpts.scales.y, min: 0, max: 100 } } },
+  }));
+
+  // HRV chart
+  destroyChart("recovery-hrv");
+  const hrvFiltered = vitalsData.filter((d) => d.hrvNight);
+  const hrvOpts = baseOpts("ms", (v) => v + " ms");
+  const hrvDatasets = [
+    makeDataset(hrvFiltered.map((d) => ({ x: d.date, y: d.hrvNight })), PALETTE.olive + "50", { label: "Daily", borderWidth: 1.5, pointRadius: hrvFiltered.length > 60 ? 0 : 2, fill: false, order: 1 }),
+  ];
+  if (showRolling) {
+    hrvDatasets.push(makeRollingDataset(hrvFiltered.map((d) => d.date), hrvFiltered.map((d) => d.hrvNight), w, PALETTE.olive));
+    hrvOpts.plugins.legend = legendWithRolling;
+  }
+  registerChart("recovery-hrv", new Chart(document.getElementById("recovery-hrv-chart"), {
+    type: "line",
+    data: { datasets: hrvDatasets },
+    options: hrvOpts,
+  }));
+
+  // Resting HR
+  destroyChart("rhr");
+  const rhrFiltered = vitalsData.filter((d) => d.restingHR);
+  const rhrOpts = baseOpts("bpm", (v) => v + " bpm");
+  const rhrDatasets = [
+    makeDataset(rhrFiltered.map((d) => ({ x: d.date, y: d.restingHR })), PALETTE.terracotta + "50", { label: "Daily", borderWidth: 1.5, pointRadius: rhrFiltered.length > 60 ? 0 : 2, fill: false, order: 1 }),
+  ];
+  if (showRolling) {
+    rhrDatasets.push(makeRollingDataset(rhrFiltered.map((d) => d.date), rhrFiltered.map((d) => d.restingHR), w, PALETTE.terracotta));
+    rhrOpts.plugins.legend = legendWithRolling;
+  }
+  registerChart("rhr", new Chart(document.getElementById("rhr-chart"), {
+    type: "line",
+    data: { datasets: rhrDatasets },
+    options: rhrOpts,
+  }));
+
+  // Stress — rolling average
+  destroyChart("stress");
+  const stressFiltered = vitalsData.filter((d) => d.avgStress);
+  const stressOpts = baseOpts("stress");
+  const stressDatasets = [
+    makeDataset(stressFiltered.map((d) => ({ x: d.date, y: d.avgStress })), PALETTE.terracotta + "40", { label: "Daily", borderWidth: 1, pointRadius: 0, fill: false, order: 1 }),
+  ];
+  stressDatasets.push(makeRollingDataset(stressFiltered.map((d) => d.date), stressFiltered.map((d) => d.avgStress), w, PALETTE.terracotta));
+  stressOpts.plugins.legend = legendWithRolling;
+  const stressMax = stressFiltered.length ? Math.max(...stressFiltered.map((d) => d.avgStress)) : 50;
+  const stressMin = stressFiltered.length ? Math.min(...stressFiltered.map((d) => d.avgStress)) : 0;
+  const stressPad = Math.max(5, (stressMax - stressMin) * 0.15);
+  registerChart("stress", new Chart(document.getElementById("stress-chart"), {
+    type: "line",
+    data: { datasets: stressDatasets },
+    options: { ...stressOpts, scales: { ...stressOpts.scales, y: { ...stressOpts.scales.y, min: Math.max(0, Math.floor(stressMin - stressPad)), max: Math.ceil(stressMax + stressPad) } } },
   }));
 
   // Stages chart
@@ -336,64 +893,19 @@ async function renderSleep(days = 14) {
   registerChart("sleep-stages", new Chart(document.getElementById("sleep-stages-chart"), {
     type: "bar",
     data: {
-      labels: data.map((d) => d.date),
+      labels: sleepData.map((d) => d.date),
       datasets: [
-        { label: "Deep", data: data.map((d) => d.deep || 0), backgroundColor: "#3d5a80", borderRadius: 2, borderSkipped: false },
-        { label: "REM", data: data.map((d) => d.rem || 0), backgroundColor: "#7a5c6e", borderRadius: 2, borderSkipped: false },
-        { label: "Light", data: data.map((d) => d.light || 0), backgroundColor: "#a0826d80", borderRadius: 2, borderSkipped: false },
-        { label: "Awake", data: data.map((d) => d.awake || 0), backgroundColor: "#c4653a60", borderRadius: 2, borderSkipped: false },
+        { label: "Deep", data: sleepData.map((d) => d.deep || 0), backgroundColor: "#3d5a80", borderRadius: 2, borderSkipped: false },
+        { label: "REM", data: sleepData.map((d) => d.rem || 0), backgroundColor: "#7a5c6e", borderRadius: 2, borderSkipped: false },
+        { label: "Light", data: sleepData.map((d) => d.light || 0), backgroundColor: "#a0826d80", borderRadius: 2, borderSkipped: false },
+        { label: "Awake", data: sleepData.map((d) => d.awake || 0), backgroundColor: "#c4653a60", borderRadius: 2, borderSkipped: false },
       ],
     },
     options: stagesOpts,
   }));
 }
 
-// ── Vitals ───────────────────────────────────────────────────────────────────
-
-async function renderVitals(days = 14) {
-  const data = await fetch(`/api/vitals?days=${days}`).then((r) => r.json());
-
-  // Resting HR
-  destroyChart("rhr");
-  const rhrData = data.filter((d) => d.restingHR).map((d) => ({ x: d.date, y: d.restingHR }));
-  const rhrOpts = baseOpts("bpm", (v) => v + " bpm");
-  rhrOpts.plugins.tooltip.callbacks = { label: (i) => `${i.parsed.y} bpm` };
-  registerChart("rhr", new Chart(document.getElementById("rhr-chart"), {
-    type: "line",
-    data: { datasets: [makeDataset(rhrData, PALETTE.terracotta)] },
-    options: rhrOpts,
-  }));
-
-  // HRV
-  destroyChart("hrv");
-  const hrvData = data.filter((d) => d.hrvNight).map((d) => ({ x: d.date, y: d.hrvNight }));
-  const hrvOpts = baseOpts("ms", (v) => v + " ms");
-  hrvOpts.plugins.tooltip.callbacks = { label: (i) => `${i.parsed.y} ms` };
-  registerChart("hrv", new Chart(document.getElementById("hrv-chart"), {
-    type: "line",
-    data: { datasets: [makeDataset(hrvData, PALETTE.olive)] },
-    options: hrvOpts,
-  }));
-
-  // Stress — 7-day rolling average
-  destroyChart("stress");
-  const rawStress = data.filter((d) => d.avgStress);
-  const window = 7;
-  const rollingStress = rawStress.map((d, i) => {
-    const start = Math.max(0, i - window + 1);
-    const slice = rawStress.slice(start, i + 1).map((s) => s.avgStress);
-    return { x: d.date, y: Math.round(slice.reduce((a, b) => a + b, 0) / slice.length) };
-  });
-  const stressOpts = baseOpts("stress");
-  stressOpts.plugins.tooltip.callbacks = { label: (i) => `7d avg: ${i.parsed.y}` };
-  registerChart("stress", new Chart(document.getElementById("stress-chart"), {
-    type: "line",
-    data: {
-      datasets: [makeDataset(rollingStress, PALETTE.terracotta)],
-    },
-    options: { ...stressOpts, scales: { ...stressOpts.scales, y: { ...stressOpts.scales.y, min: 0, max: 100 } } },
-  }));
-}
+// (Vitals are now part of the Recovery tab)
 
 // ── Steps ────────────────────────────────────────────────────────────────────
 
@@ -427,39 +939,86 @@ async function renderSteps(days = 14) {
     statsEl.appendChild(el);
   });
 
-  // Chart
+  // Chart — bars for daily + line for rolling avg
   destroyChart("steps");
   const opts = baseOpts("steps", (v) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : v);
-  opts.plugins.tooltip.callbacks = { label: (i) => `${i.parsed.y.toLocaleString()} steps` };
 
+  const sw = rollingWindow(days);
   const datasets = [{
+    type: "bar", label: "Daily",
     data: data.map((d) => d.steps),
-    backgroundColor: data.map((d) => d.steps >= goal ? PALETTE.olive + "90" : d.steps >= 7000 ? PALETTE.clay + "90" : PALETTE.terracotta + "70"),
-    borderRadius: 4, borderSkipped: false,
+    backgroundColor: data.map((d) => d.steps >= goal ? PALETTE.olive + "70" : d.steps >= 7000 ? PALETTE.clay + "50" : PALETTE.terracotta + "40"),
+    borderRadius: 3, borderSkipped: false, order: 1,
   }];
-
-  // Goal line
+  if (data.length > sw) {
+    const rolled = rollingAvg(data.map((d) => d.steps), sw);
+    datasets.push({
+      type: "line", label: `${sw}d avg`,
+      data: rolled,
+      borderColor: PALETTE.sea, borderWidth: 2.5,
+      pointRadius: 0, pointHoverRadius: 4,
+      fill: false, tension: 0.35, order: 0,
+      _rollingValues: rolled,
+    });
+  }
   if (goal) {
     datasets.push({
       type: "line", label: "Goal",
       data: Array(data.length).fill(goal),
       borderColor: "#8a837c", borderWidth: 1.5, borderDash: [6, 4],
-      pointRadius: 0, fill: false,
+      pointRadius: 0, fill: false, order: 0,
     });
-    opts.plugins.legend = {
-      display: true, position: "bottom",
-      labels: { boxWidth: 12, boxHeight: 2, padding: 8, font: { ...FONT, size: 10, weight: "300" }, color: "#8a837c" },
-    };
   }
+  opts.plugins.legend = {
+    display: true, position: "bottom",
+    labels: { boxWidth: 12, boxHeight: 2, padding: 8, font: { ...FONT, size: 10, weight: "300" }, color: "#8a837c" },
+  };
 
   registerChart("steps", new Chart(document.getElementById("steps-chart"), {
     type: "bar",
     data: { labels: data.map((d) => d.date), datasets },
-    options: opts,
+    options: { ...opts, scales: { ...opts.scales, y: { ...opts.scales.y, min: 0 } } },
   }));
 }
 
 // ── Activities ───────────────────────────────────────────────────────────────
+
+let _activitySummary = null;
+
+function renderMonthlyChart(mode = "count") {
+  if (!_activitySummary) return;
+  const summary = _activitySummary;
+
+  destroyChart("monthly");
+  const isCount = mode === "count";
+  const source = isCount ? summary.monthly : summary.monthlyDuration;
+  const months = Object.entries(source).sort((a, b) => a[0].localeCompare(b[0]));
+  const monthOpts = baseOpts(isCount ? "count" : "hrs", isCount ? undefined : (v) => Math.round(v / 60) + "h");
+  monthOpts.scales.x = {
+    type: "category",
+    grid: { display: false },
+    ticks: { font: { ...FONT, size: 10, weight: "300" }, color: "#8a837c" },
+    border: { display: false },
+  };
+  monthOpts.plugins.tooltip.callbacks = {
+    label: (i) => isCount ? `${i.parsed.y} workouts` : `${Math.round(i.parsed.y / 60)} hrs ${Math.round(i.parsed.y % 60)} min`,
+  };
+
+  document.getElementById("monthly-chart-title").textContent = isCount ? "Monthly Activity Count" : "Monthly Activity Duration";
+
+  registerChart("monthly", new Chart(document.getElementById("monthly-chart"), {
+    type: "bar",
+    data: {
+      labels: months.map((m) => m[0]),
+      datasets: [{
+        data: months.map((m) => m[1]),
+        backgroundColor: isCount ? PALETTE.sea + "90" : PALETTE.olive + "90",
+        borderRadius: 4, borderSkipped: false,
+      }],
+    },
+    options: monthOpts,
+  }));
+}
 
 async function renderActivities(listDays = 90) {
   const [summary, activities] = await Promise.all([
@@ -467,28 +1026,9 @@ async function renderActivities(listDays = 90) {
     fetch(`/api/activities?days=${listDays}`).then((r) => r.json()),
   ]);
 
-  // Monthly chart
-  destroyChart("monthly");
-  const months = Object.entries(summary.monthly).sort((a, b) => a[0].localeCompare(b[0]));
-  const monthOpts = baseOpts("count");
-  monthOpts.scales.x = {
-    type: "category",
-    grid: { display: false },
-    ticks: { font: { ...FONT, size: 10, weight: "300" }, color: "#8a837c" },
-    border: { display: false },
-  };
-  registerChart("monthly", new Chart(document.getElementById("monthly-chart"), {
-    type: "bar",
-    data: {
-      labels: months.map((m) => m[0]),
-      datasets: [{
-        data: months.map((m) => m[1]),
-        backgroundColor: PALETTE.sea + "90",
-        borderRadius: 4, borderSkipped: false,
-      }],
-    },
-    options: monthOpts,
-  }));
+  _activitySummary = summary;
+  const activeMode = document.querySelector("#monthly-mode-bar .range-btn.active")?.dataset.mode || "count";
+  renderMonthlyChart(activeMode);
 
   // Types doughnut
   destroyChart("types");
@@ -530,6 +1070,8 @@ async function renderActivities(listDays = 90) {
 function renderActivityRow(container, a) {
   const row = document.createElement("div");
   row.className = "activity-row";
+  row.dataset.date = a.date;
+  row.addEventListener("click", () => openSession(a.date));
   const type = (a.type || "other").replace("_", " ");
   row.innerHTML = `
     <span class="a-date">${formatShort(a.date)}</span>
@@ -703,12 +1245,20 @@ document.querySelectorAll(".page").forEach((page) => {
         btn.classList.add("active");
         const days = parseInt(btn.dataset.days);
         const section = page.id;
-        if (section === "sleep") renderSleep(days);
-        else if (section === "vitals") renderVitals(days);
+        if (section === "recovery") renderRecovery(days);
         else if (section === "steps") renderSteps(days);
         else if (section === "activities") renderActivities(days);
       });
     });
+  });
+});
+
+// Monthly count/duration toggle
+document.querySelectorAll("#monthly-mode-bar .range-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#monthly-mode-bar .range-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    renderMonthlyChart(btn.dataset.mode);
   });
 });
 
@@ -717,7 +1267,6 @@ document.querySelectorAll(".page").forEach((page) => {
 renderOverview();
 renderStrength();
 renderHealthHistory();
-renderSleep(14);
-renderVitals(14);
+renderRecovery(14);
 renderSteps(14);
 renderActivities(90);

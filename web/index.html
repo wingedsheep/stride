@@ -20,8 +20,7 @@
       <nav class="nav-tabs">
         <button class="tab active" data-section="overview">Overview</button>
         <button class="tab" data-section="strength">Strength</button>
-        <button class="tab" data-section="sleep">Sleep</button>
-        <button class="tab" data-section="vitals">Vitals</button>
+        <button class="tab" data-section="recovery">Recovery</button>
         <button class="tab" data-section="health">Health</button>
         <button class="tab" data-section="steps">Steps</button>
         <button class="tab" data-section="activities">Activities</button>
@@ -45,8 +44,8 @@
       <div id="strength-sessions"></div>
     </section>
 
-    <!-- Sleep -->
-    <section class="page" id="sleep">
+    <!-- Recovery -->
+    <section class="page" id="recovery">
       <div class="range-bar">
         <button class="range-btn active" data-days="14">2W</button>
         <button class="range-btn" data-days="30">1M</button>
@@ -54,42 +53,38 @@
         <button class="range-btn" data-days="365">1Y</button>
       </div>
       <div class="dual-chart-row">
-        <div class="chart-card wide" id="sleep-duration-card">
+        <div class="chart-card wide">
           <h3>Sleep Duration</h3>
           <div class="chart-wrap tall"><canvas id="sleep-duration-chart"></canvas></div>
         </div>
-        <div class="chart-card wide" id="sleep-score-card">
+        <div class="chart-card wide">
           <h3>Sleep Score</h3>
           <div class="chart-wrap tall"><canvas id="sleep-score-chart"></canvas></div>
         </div>
       </div>
-      <div class="chart-card wide" id="sleep-stages-card" style="margin-top:1rem">
-        <h3>Sleep Stages</h3>
-        <div class="chart-wrap tall"><canvas id="sleep-stages-chart"></canvas></div>
+      <div class="dual-chart-row" style="margin-top:1rem">
+        <div class="chart-card wide">
+          <h3>Body Battery</h3>
+          <div class="chart-wrap tall"><canvas id="bb-chart"></canvas></div>
+        </div>
+        <div class="chart-card wide">
+          <h3>HRV (nightly)</h3>
+          <div class="chart-wrap tall"><canvas id="recovery-hrv-chart"></canvas></div>
+        </div>
       </div>
-    </section>
-
-    <!-- Vitals -->
-    <section class="page" id="vitals">
-      <div class="range-bar">
-        <button class="range-btn active" data-days="14">2W</button>
-        <button class="range-btn" data-days="30">1M</button>
-        <button class="range-btn" data-days="90">3M</button>
-        <button class="range-btn" data-days="365">1Y</button>
-      </div>
-      <div class="dual-chart-row">
+      <div class="dual-chart-row" style="margin-top:1rem">
         <div class="chart-card wide">
           <h3>Resting Heart Rate</h3>
           <div class="chart-wrap tall"><canvas id="rhr-chart"></canvas></div>
         </div>
         <div class="chart-card wide">
-          <h3>Heart Rate Variability</h3>
-          <div class="chart-wrap tall"><canvas id="hrv-chart"></canvas></div>
+          <h3>Stress (7-day avg)</h3>
+          <div class="chart-wrap tall"><canvas id="stress-chart"></canvas></div>
         </div>
       </div>
       <div class="chart-card wide" style="margin-top:1rem">
-        <h3>Stress (7-day avg)</h3>
-        <div class="chart-wrap tall"><canvas id="stress-chart"></canvas></div>
+        <h3>Sleep Stages</h3>
+        <div class="chart-wrap tall"><canvas id="sleep-stages-chart"></canvas></div>
       </div>
     </section>
 
@@ -117,7 +112,13 @@
     <section class="page" id="activities">
       <div class="dual-chart-row">
         <div class="chart-card wide">
-          <h3>Monthly Activity Count</h3>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.2rem">
+            <h3 id="monthly-chart-title">Monthly Activity Count</h3>
+            <div class="range-bar" style="margin:0" id="monthly-mode-bar">
+              <button class="range-btn active" data-mode="count">Count</button>
+              <button class="range-btn" data-mode="duration">Duration</button>
+            </div>
+          </div>
           <div class="chart-wrap tall"><canvas id="monthly-chart"></canvas></div>
         </div>
         <div class="chart-card wide">
@@ -134,6 +135,12 @@
       <div id="activities-list"></div>
     </section>
   </main>
+
+  <!-- Session Detail Overlay -->
+  <div class="overlay hidden" id="session-overlay">
+    <div class="overlay-backdrop" id="overlay-backdrop"></div>
+    <div class="overlay-panel" id="session-panel"></div>
+  </div>
 
   <script src="app.js"></script>
 </body>

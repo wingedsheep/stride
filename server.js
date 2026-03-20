@@ -178,7 +178,15 @@ function getVitals(days) {
     hrvNight: extractMdValue(content, "HRV \\(last night avg\\)"),
     hrvWeekly: extractMdValue(content, "HRV \\(weekly avg\\)"),
     avgStress: extractMdValue(content, "Avg stress"),
-    bodyBattery: extractMdString(content, "Body battery"),
+    bodyBattery: (() => {
+      const raw = extractMdString(content, "Body battery");
+      if (!raw) return null;
+      const parts = raw.split("–").map((s) => parseFloat(s.trim()));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        return { min: parts[0], max: parts[1] };
+      }
+      return null;
+    })(),
   }));
 }
 
@@ -221,18 +229,20 @@ function getActivitySummary() {
     types[t] = (types[t] || 0) + 1;
   }
 
-  // Monthly counts for last 12 months
+  // Monthly counts and duration for last 12 months
   const monthly = {};
+  const monthlyDuration = {};
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - 12);
   for (const a of all) {
     if (a.date >= cutoff.toISOString().slice(0, 10)) {
       const month = a.date.slice(0, 7);
       monthly[month] = (monthly[month] || 0) + 1;
+      monthlyDuration[month] = (monthlyDuration[month] || 0) + (a.duration || 0);
     }
   }
 
-  return { total: all.length, types, monthly };
+  return { total: all.length, types, monthly, monthlyDuration };
 }
 
 function parseHealthSummary(filepath) {
@@ -307,6 +317,138 @@ function getSteps(days) {
   })).filter((d) => d.steps !== null);
 }
 
+function getSessionDetail(dateStr) {
+  // Garmin activities for this date
+  const workoutDir = path.join(GARMIN_DIR, "workouts");
+  const garminActivities = [];
+  if (fs.existsSync(workoutDir)) {
+    const files = fs.readdirSync(workoutDir).filter((f) => f.startsWith(dateStr) && f.endsWith(".md"));
+    for (const f of files) {
+      const content = fs.readFileSync(path.join(workoutDir, f), "utf-8");
+      const titleMatch = content.match(/^#\s+(.+)/);
+      const slug = f.replace(".md", "");
+
+      // Load JSON for detailed data
+      const jsonPath = path.join(workoutDir, slug + ".json");
+      let jsonData = null;
+      if (fs.existsSync(jsonPath)) {
+        try { jsonData = JSON.parse(fs.readFileSync(jsonPath, "utf-8")); } catch {}
+      }
+
+      // Load splits if available
+      const splitsPath = path.join(workoutDir, slug + ".splits.json");
+      let splits = null;
+      if (fs.existsSync(splitsPath)) {
+        try { splits = JSON.parse(fs.readFileSync(splitsPath, "utf-8")); } catch {}
+      }
+
+      const activity = {
+        filename: f,
+        title: titleMatch ? titleMatch[1].trim() : f,
+        type: extractMdString(content, "Type"),
+        duration: extractMdValue(content, "Duration"),
+        distance: extractMdValue(content, "Distance"),
+        calories: extractMdValue(content, "Calories"),
+        avgHR: extractMdValue(content, "Avg HR"),
+        maxHR: extractMdValue(content, "Max HR"),
+      };
+
+      // Add detailed fields from JSON
+      if (jsonData) {
+        activity.activityId = jsonData.activityId;
+        activity.avgSpeed = jsonData.averageSpeed;
+        activity.maxSpeed = jsonData.maxSpeed;
+        activity.avgCadence = jsonData.averageRunningCadenceInStepsPerMinute;
+        activity.elevationGain = jsonData.elevationGain;
+        activity.elevationLoss = jsonData.elevationLoss;
+        activity.avgStrideLength = jsonData.avgStrideLength;
+      }
+
+      // Add lap data from splits
+      if (splits && splits.lapDTOs) {
+        activity.laps = splits.lapDTOs.map((lap, i) => ({
+          index: i + 1,
+          distance: lap.distance,
+          duration: lap.duration,
+          avgSpeed: lap.averageSpeed,
+          maxSpeed: lap.maxSpeed,
+          avgHR: lap.averageHR,
+          maxHR: lap.maxHR,
+          avgCadence: lap.averageRunCadence,
+          elevationGain: lap.elevationGain,
+          elevationLoss: lap.elevationLoss,
+          calories: lap.calories,
+        }));
+      }
+
+      garminActivities.push(activity);
+    }
+  }
+
+  // Training log notes for this date
+  const trainingNotes = [];
+  if (fs.existsSync(LOG_DIR)) {
+    const files = fs.readdirSync(LOG_DIR).filter((f) => f.startsWith(dateStr) && f.endsWith(".md"));
+    for (const f of files) {
+      const parsed = parseTrainingLog(path.join(LOG_DIR, f));
+      if (parsed) {
+        parsed.exercises = parsed.exercises.map((e) => ({ ...e, canonical: canonicalize(e.name) }));
+        trainingNotes.push(parsed);
+      }
+    }
+  }
+
+  // Sleep for this date
+  const sleepFile = path.join(GARMIN_DIR, "sleep", `${dateStr}.md`);
+  let sleep = null;
+  if (fs.existsSync(sleepFile)) {
+    const content = fs.readFileSync(sleepFile, "utf-8");
+    sleep = {
+      totalHrs: extractMdValue(content, "Total sleep"),
+      score: extractMdValue(content, "Sleep score"),
+      deep: extractMdValue(content, "Deep"),
+      rem: extractMdValue(content, "REM"),
+    };
+  }
+
+  // Vitals for this date
+  const vitalsFile = path.join(GARMIN_DIR, "vitals", `${dateStr}.md`);
+  let vitals = null;
+  if (fs.existsSync(vitalsFile)) {
+    const content = fs.readFileSync(vitalsFile, "utf-8");
+    vitals = {
+      restingHR: extractMdValue(content, "Resting HR"),
+      hrvNight: extractMdValue(content, "HRV \\(last night avg\\)"),
+      avgStress: extractMdValue(content, "Avg stress"),
+    };
+  }
+
+  // Steps
+  const stepsFile = path.join(GARMIN_DIR, "steps", `${dateStr}.md`);
+  let steps = null;
+  if (fs.existsSync(stepsFile)) {
+    const content = fs.readFileSync(stepsFile, "utf-8");
+    steps = extractMdValue(content, "Total steps");
+  }
+
+  // Journal
+  const journalFile = path.join(ROOT, "journal", `${dateStr}.md`);
+  let journal = null;
+  if (fs.existsSync(journalFile)) {
+    journal = fs.readFileSync(journalFile, "utf-8");
+  }
+
+  return {
+    date: dateStr,
+    garminActivities,
+    trainingNotes,
+    sleep,
+    vitals,
+    steps,
+    journal,
+  };
+}
+
 // ── HTTP server ─────────────────────────────────────────────────────────────
 
 const MIME = {
@@ -334,6 +476,10 @@ const server = http.createServer((req, res) => {
   if (pathname === "/api/activity-summary") return json(res, getActivitySummary());
   if (pathname === "/api/steps") return json(res, getSteps(days || 30));
   if (pathname === "/api/health-summary") return json(res, getLatestHealthSummary());
+  if (pathname.match(/^\/api\/session\/\d{4}-\d{2}-\d{2}$/)) {
+    const dateStr = pathname.split("/").pop();
+    return json(res, getSessionDetail(dateStr));
+  }
   if (pathname === "/api/health-summaries") return json(res, getHealthSummaries());
 
   // Static files

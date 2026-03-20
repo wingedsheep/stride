@@ -10,11 +10,12 @@ garmin/           — Synced Garmin data
   sleep/          — Daily sleep data
   vitals/         — Resting HR, HRV, body battery, stress, etc.
 journal/          — Daily journal entries (one file per day: YYYY-MM-DD.md)
+food/             — Daily food log (one file per day: YYYY-MM-DD.md)
 training/
   log/            — Workout notes: weights, sets, reps, RPE, how it felt
-  programs/       — Training plans and programming
+  programs/       — Training plans and next-session plans
 health/           — Blood work, medical tests, and periodic health summaries
-docs/             — Process documentation (e.g. how to write health summaries)
+docs/             — Process documentation for all skills
 profile/          — Persistent personal info
   preferences.md  — Food likes/dislikes, workout preferences
   goals.md        — Current training goals
@@ -85,10 +86,25 @@ The sync script pulls:
 
 Data is stored as both raw JSON (for analysis) and summarized markdown (for reading).
 
-## Health Summaries
+## Commands
 
-When asked to produce a health summary, follow the process in `docs/health-summary-process.md`.
-Save output to `health/summary-YYYY-MM-DD.md` — it automatically appears in the dashboard Health tab.
+When the user says any of these, follow the linked process:
+
+### Health
+- **"health summary"** / **"how am I doing"** / **"analyze my health"** → Follow `docs/health-summary-process.md`. First run `source .venv/bin/activate && python scripts/analyze.py summary` to gather all data with rolling averages, trends, and cross-metric correlations. Use this output to write `health/summary-YYYY-MM-DD.md`. The dashboard Health tab picks it up automatically. For deeper dives, use `python scripts/analyze.py <area> [days]` (sleep, vitals, steps, activities, strength, correlations).
+
+### Training
+- **"plan next workout"** / **"next session"** / **"what should I train"** → Follow `docs/training-plan-process.md`. Check recovery status (sleep, HRV, body battery), review recent training logs, check progression, and create a plan in `training/programs/next-session-YYYY-MM-DD.md`.
+- **"plan my week"** / **"make a training plan"** / **"plan until <event>"** → Follow the multi-week section in `docs/training-plan-process.md`. Create a periodized plan in `training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md`.
+- **"log workout"** → Create `training/log/YYYY-MM-DD-<type>.md`
+
+### Food
+- **"we had X for dinner"** / **"log food"** / **"ate X"** → Follow `docs/food-tracking-process.md`. Save to `food/YYYY-MM-DD.md` (append if file exists).
+- **"what should I eat"** / **"suggest dinner"** / **"recipe ideas"** → Follow `docs/food-tracking-process.md`. Read preferences from `profile/nutrition.md`, check recent `food/` entries to avoid repetition, suggest 2-3 options at different effort levels.
+
+### General
+- **"sync"** / **"update garmin"** → Run `source .venv/bin/activate && python scripts/garmin_sync.py`
+- **"journal"** / **"log today"** → Create or append to `journal/YYYY-MM-DD.md`
 
 ## Important
 - Never commit `.env` — it contains Garmin credentials
