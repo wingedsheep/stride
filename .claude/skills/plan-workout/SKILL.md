@@ -5,13 +5,13 @@ user-invocable: true
 allowed-tools: Read, Bash, Grep, Glob, Agent
 ---
 
-Plan the next training session. Save to `training/programs/next-session-YYYY-MM-DD.md`.
+Plan the next training session. Save to `data/training/programs/next-session-YYYY-MM-DD.md`.
 
 ## Data to gather (use parallel subagents)
 
-1. **Training history**: Read ALL files in `training/log/`. Run `source .venv/bin/activate && python scripts/analyze.py strength`. Need the full picture — every exercise, every weight, every note about how it felt.
-2. **Recovery status**: Read recent `garmin/sleep/`, `garmin/vitals/`, and `garmin/workouts/` (last 2 weeks). How recovered is the user? What other activities have they done recently?
-3. **Goals & plans**: Read `profile/goals.md` and any active plan in `training/programs/plan-*.md`.
+1. **Training history**: Read ALL files in `data/training/log/`. Run `source .venv/bin/activate && python scripts/analyze.py strength`. Need the full picture — every exercise, every weight, every note about how it felt.
+2. **Recovery status**: Read recent `data/garmin/sleep/`, `data/garmin/vitals/`, and `data/garmin/workouts/` (last 2 weeks). How recovered is the user? What other activities have they done recently?
+3. **Goals & plans**: Read `data/profile/goals.md` and any active plan in `data/training/programs/plan-*.md`.
 
 ## Output structure
 

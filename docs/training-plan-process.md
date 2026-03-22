@@ -5,16 +5,16 @@
 When the user asks "plan my next workout" / "what should I do next" / "next session":
 
 ### Data to gather
-1. **Recent training logs** — read the last 3-5 entries from `training/log/` to see what was done, weights, notes
-2. **Garmin activity history** — check last 2 weeks of `garmin/workouts/` for all activity (not just strength)
+1. **Recent training logs** — read the last 3-5 entries from `data/training/log/` to see what was done, weights, notes
+2. **Garmin activity history** — check last 2 weeks of `data/garmin/workouts/` for all activity (not just strength)
 3. **Recovery status** — read today's (or most recent) vitals: HRV, resting HR, body battery, sleep score
-4. **Goals** — read `profile/goals.md`
+4. **Goals** — read `data/profile/goals.md`
 5. **Current progression** — run `python scripts/analyze.py strength` to see where each lift is trending
 6. **Days since last session** — calculate from the most recent training log date
 
 ### Plan structure
 
-Save to `training/programs/next-session-YYYY-MM-DD.md` (automatically visible on the dashboard Plans tab):
+Save to `data/training/programs/next-session-YYYY-MM-DD.md` (automatically visible on the dashboard Plans tab):
 
 ```markdown
 # Next Session Plan — YYYY-MM-DD
@@ -62,13 +62,13 @@ When the user asks "make a plan for next week/month" / "plan until <event>":
 ### Additional data
 - Count weeks until target date (if event-based)
 - Activity frequency from `python scripts/analyze.py activities`
-- All goals from `profile/goals.md` (strength, running, yoga/meditation)
-- **Recent activity types** — check `garmin/workouts/` to see what the user is already doing. Don't prescribe ramp-ups for things they already do.
+- All goals from `data/profile/goals.md` (strength, running, yoga/meditation)
+- **Recent activity types** — check `data/garmin/workouts/` to see what the user is already doing. Don't prescribe ramp-ups for things they already do.
 - Journal entries for life context (work pressure, social plans, mood)
 
 ### Plan structure
 
-Save to `training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md` (automatically visible on the dashboard Plans tab).
+Save to `data/training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md` (automatically visible on the dashboard Plans tab).
 
 **Default: keep it short.** A plan should fit on one screen unless the user asks for more detail. If they want week-by-week breakdowns, periodization, or specific exercises — do that. These are defaults, not rules. Default structure:
 

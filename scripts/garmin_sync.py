@@ -66,7 +66,7 @@ def sync_activities(client: Garmin, start: date, end: date):
         slug = f"{act_date}-{act_type}".lower().replace(" ", "-")
 
         # Save raw JSON
-        save_json(activity, ROOT / f"garmin/workouts/{slug}.json")
+        save_json(activity, ROOT / f"data/garmin/workouts/{slug}.json")
 
         # Generate markdown summary
         duration_min = round(activity.get("duration", 0) / 60, 1)
@@ -87,7 +87,7 @@ def sync_activities(client: Garmin, start: date, end: date):
         if max_hr:
             md += f"- **Max HR**: {max_hr} bpm\n"
 
-        save_markdown(md, ROOT / f"garmin/workouts/{slug}.md")
+        save_markdown(md, ROOT / f"data/garmin/workouts/{slug}.md")
 
     print(f"  Synced {len(activities)} activities")
 
@@ -105,7 +105,7 @@ def sync_sleep(client: Garmin, day: date):
     if not sleep_data:
         return
 
-    save_json(sleep_data, ROOT / f"garmin/sleep/{day.isoformat()}.json")
+    save_json(sleep_data, ROOT / f"data/garmin/sleep/{day.isoformat()}.json")
 
     daily = sleep_data.get("dailySleepDTO") or {}
     duration_hrs = round((daily.get("sleepTimeSeconds") or 0) / 3600, 1)
@@ -124,7 +124,7 @@ def sync_sleep(client: Garmin, day: date):
     md += f"- **REM**: {rem_hrs} hrs\n"
     md += f"- **Awake**: {awake_hrs} hrs\n"
 
-    save_markdown(md, ROOT / f"garmin/sleep/{day.isoformat()}.md")
+    save_markdown(md, ROOT / f"data/garmin/sleep/{day.isoformat()}.md")
     print(f"  Synced sleep for {day}")
 
 
@@ -162,7 +162,7 @@ def sync_vitals(client: Garmin, day: date):
     if not vitals:
         return
 
-    save_json(vitals, ROOT / f"garmin/vitals/{day.isoformat()}.json")
+    save_json(vitals, ROOT / f"data/garmin/vitals/{day.isoformat()}.json")
 
     # Extract key metrics — API can return None for any of these
     hr_data = vitals.get("heart_rate") or {}
@@ -196,7 +196,7 @@ def sync_vitals(client: Garmin, day: date):
     md += f"- **Max stress**: {max_stress}\n"
     md += f"- **Body battery**: {bb_min}–{bb_max}\n"
 
-    save_markdown(md, ROOT / f"garmin/vitals/{day.isoformat()}.md")
+    save_markdown(md, ROOT / f"data/garmin/vitals/{day.isoformat()}.md")
     print(f"  Synced vitals for {day}")
 
 
@@ -222,13 +222,13 @@ def sync_steps(client: Garmin, day: date):
         total = 0
         goal = "N/A"
 
-    save_json(steps_data, ROOT / f"garmin/steps/{day.isoformat()}.json")
+    save_json(steps_data, ROOT / f"data/garmin/steps/{day.isoformat()}.json")
 
     md = f"# Steps — {day.isoformat()}\n\n"
     md += f"- **Total steps**: {total}\n"
     md += f"- **Goal**: {goal}\n"
 
-    save_markdown(md, ROOT / f"garmin/steps/{day.isoformat()}.md")
+    save_markdown(md, ROOT / f"data/garmin/steps/{day.isoformat()}.md")
     print(f"  Synced steps for {day}")
 
 

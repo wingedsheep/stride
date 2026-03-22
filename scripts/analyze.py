@@ -46,7 +46,7 @@ def parse_md_string(content, label):
 
 def read_dir(subdir, days=None):
     """Read all .md files from a garmin subdirectory."""
-    directory = ROOT / "garmin" / subdir
+    directory = ROOT / "data" / "garmin" / subdir
     if not directory.exists():
         return []
 
@@ -231,7 +231,7 @@ def analyze_steps(days=30):
 
 
 def analyze_activities(days=90):
-    directory = ROOT / "garmin" / "workouts"
+    directory = ROOT / "data" / "garmin" / "workouts"
     if not directory.exists():
         return {"error": "No workout data"}
 
@@ -269,7 +269,7 @@ def analyze_activities(days=90):
 
 
 def analyze_strength():
-    log_dir = ROOT / "training" / "log"
+    log_dir = ROOT / "data" / "training" / "log"
     if not log_dir.exists():
         return {"error": "No training logs"}
 
@@ -324,7 +324,7 @@ def analyze_correlations():
     steps_entries = {dt: parse_md_value(c, "Total steps") for dt, c in read_dir("steps", 90)}
 
     # Workout dates
-    workout_dir = ROOT / "garmin" / "workouts"
+    workout_dir = ROOT / "data" / "garmin" / "workouts"
     workout_dates = set()
     if workout_dir.exists():
         cutoff = (date.today() - timedelta(days=90)).isoformat()

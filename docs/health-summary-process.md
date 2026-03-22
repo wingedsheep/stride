@@ -1,6 +1,6 @@
 # Health Summary Process
 
-When a health summary is requested, produce a detailed report saved to `health/summary-YYYY-MM-DD.md`.
+When a health summary is requested, produce a detailed report saved to `data/health/summaries/summary-YYYY-MM-DD.md`.
 
 ## Data Gathering
 
@@ -11,7 +11,7 @@ Pull actual numbers across multiple time windows (7d, 30d, 90d, 1y) for:
 - **Steps**: daily avg, days at 10k goal
 - **Activity frequency**: workouts per month, compare to previous year
 - **Strength**: current weights vs previous, % of average for age/weight
-- **Bloodwork**: latest values and any flags from `health/bloodwork-*.md`
+- **Bloodwork**: latest values and any flags from `data/measurements/bloodwork/`
 - **Blood pressure**: readings from bloodwork files
 
 Always compare current (7d/30d) to longer baselines (90d/1y) to identify trends — don't just report snapshots.
@@ -61,7 +61,7 @@ The `correlations` command specifically looks for patterns between metrics to gr
 
 ## Report Structure
 
-Use this format in `health/summary-YYYY-MM-DD.md`:
+Use this format in `data/health/summaries/summary-YYYY-MM-DD.md`:
 
 1. **`## Overall`** — one paragraph, brutally honest. Say what's going well and what isn't. Name root causes directly ("you're averaging 5.7 hours because you're coding Argentum until 2 AM"), don't hide behind passive language.
 
@@ -99,6 +99,6 @@ Use this format in `health/summary-YYYY-MM-DD.md`:
 - Don't give generic advice. "Exercise more" is useless. "Train Tuesday and Thursday — your January data proves you can do 10 sessions/month when you schedule them" is useful.
 - Don't sugarcoat. If the trend is bad, say so. The user explicitly wants honesty.
 
-The dashboard Reports tab automatically picks up new `health/summary-*.md` files.
+The dashboard Reports tab automatically picks up new `data/health/summaries/summary-*.md` files.
 
 See `docs/examples.md` for a reference example of the expected format and tone.

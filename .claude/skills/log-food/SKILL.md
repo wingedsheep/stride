@@ -12,7 +12,7 @@ What was eaten: $ARGUMENTS
 
 ## Process
 
-1. Check if `food/YYYY-MM-DD.md` (today's date) already exists
+1. Check if `data/food/YYYY-MM-DD.md` (today's date) already exists
 2. If it exists, read it and **append** the new entry under the appropriate meal section
 3. If it doesn't exist, create it
 

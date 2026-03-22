@@ -12,10 +12,13 @@ __pycache__/
 # IDE
 .idea/
 
-# Personal data — synced from Garmin
-garmin/
+# Personal data — all under data/, structure preserved via .gitkeep
+data/**
+!data/**/
+!data/**/.gitkeep
 
-# Personal data — manual entries
+# Legacy data locations (in case of leftover files)
+garmin/
 journal/
 food/
 training/log/

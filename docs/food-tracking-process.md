@@ -4,7 +4,7 @@
 
 When the user says "we had X for dinner" / "log dinner" / "ate X today":
 
-Save to `food/YYYY-MM-DD.md`:
+Save to `data/food/YYYY-MM-DD.md`:
 
 ```markdown
 # Food — YYYY-MM-DD
@@ -33,8 +33,8 @@ If the file already exists for that day, append to it rather than overwriting.
 When the user asks "what should I eat" / "suggest dinner" / "recipe ideas":
 
 ### Data to gather
-1. **Preferences** — read `profile/nutrition.md` (likes, dislikes, restrictions)
-2. **Recent meals** — read last 7-14 days of `food/` to avoid repetition
+1. **Preferences** — read `data/profile/nutrition.md` (likes, dislikes, restrictions)
+2. **Recent meals** — read last 7-14 days of `data/food/` to avoid repetition
 3. **Goals** — enough protein, 200g vegetables, not meat every day, fish preferred
 
 ### Suggestion logic

@@ -6,16 +6,16 @@ argument-hint: "[duration or target date, e.g. '4 weeks' or 'until marathon in J
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Agent
 ---
 
-Create a holistic plan. Save to `training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md` (automatically visible on dashboard Plans tab).
+Create a holistic plan. Save to `data/training/programs/plan-YYYY-MM-DD-to-YYYY-MM-DD.md` (automatically visible on dashboard Plans tab).
 
 Arguments: $ARGUMENTS
 
 ## Data to gather (use parallel subagents)
 
 1. **Metrics & trends**: Run `source .venv/bin/activate && python scripts/analyze.py summary`. Where do things stand?
-2. **Training history**: Read recent `training/log/` files. Run `python scripts/analyze.py strength` and `python scripts/analyze.py activities 365`.
-3. **Goals & context**: Read `profile/goals.md`, `profile/preferences.md`, `profile/nutrition.md`. Read latest `health/summary-*.md`. Read recent `journal/` entries for life context.
-4. **Current plan**: Read any existing plans in `training/programs/` to understand what was planned before.
+2. **Training history**: Read recent `data/training/log/` files. Run `python scripts/analyze.py strength` and `python scripts/analyze.py activities 365`.
+3. **Goals & context**: Read `data/profile/goals.md`, `data/profile/preferences.md`, `data/profile/nutrition.md`. Read latest `data/health/summaries/summary-*.md`. Read recent `data/journal/` entries for life context.
+4. **Current plan**: Read any existing plans in `data/training/programs/` to understand what was planned before.
 
 ## Writing the plan
 

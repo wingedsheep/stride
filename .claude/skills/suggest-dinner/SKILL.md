@@ -12,8 +12,8 @@ Arguments: $ARGUMENTS
 
 ## Data to gather
 
-- Read `profile/nutrition.md` for preferences and restrictions
-- Read recent `food/` entries (last 7-14 days) to avoid repetition and spot patterns
+- Read `data/profile/nutrition.md` for preferences and restrictions
+- Read recent `data/food/` entries (last 7-14 days) to avoid repetition and spot patterns
 - Optionally check today's vitals/journal for energy level context
 
 ## Key constraints

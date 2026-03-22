@@ -5,8 +5,9 @@ const url = require("url");
 
 const PORT = 3000;
 const ROOT = __dirname;
-const LOG_DIR = path.join(ROOT, "training", "log");
-const GARMIN_DIR = path.join(ROOT, "garmin");
+const DATA_DIR = path.join(ROOT, "data");
+const LOG_DIR = path.join(DATA_DIR, "training", "log");
+const GARMIN_DIR = path.join(DATA_DIR, "garmin");
 
 // ── Markdown value parser helpers ───────────────────────────────────────────
 
@@ -294,7 +295,7 @@ function parseHealthSummary(filepath) {
 }
 
 function getHealthSummaries() {
-  const dir = path.join(ROOT, "health");
+  const dir = path.join(DATA_DIR, "health", "summaries");
   if (!fs.existsSync(dir)) return [];
 
   const files = fs.readdirSync(dir)
@@ -432,7 +433,7 @@ function getSessionDetail(dateStr) {
   }
 
   // Journal
-  const journalFile = path.join(ROOT, "journal", `${dateStr}.md`);
+  const journalFile = path.join(DATA_DIR, "journal", `${dateStr}.md`);
   let journal = null;
   if (fs.existsSync(journalFile)) {
     journal = fs.readFileSync(journalFile, "utf-8");
@@ -452,7 +453,7 @@ function getSessionDetail(dateStr) {
 // ── Journal parsing ──────────────────────────────────────────────────────────
 
 function getJournalEntries(days) {
-  const dir = path.join(ROOT, "journal");
+  const dir = path.join(DATA_DIR, "journal");
   if (!fs.existsSync(dir)) return [];
 
   let files = fs.readdirSync(dir).filter((f) => f.match(/^\d{4}-\d{2}-\d{2}\.md$/));
@@ -479,7 +480,7 @@ function getJournalEntries(days) {
 // ── Food log parsing ─────────────────────────────────────────────────────────
 
 function getFoodEntries(days) {
-  const dir = path.join(ROOT, "food");
+  const dir = path.join(DATA_DIR, "food");
   if (!fs.existsSync(dir)) return [];
 
   let files = fs.readdirSync(dir).filter((f) => f.match(/^\d{4}-\d{2}-\d{2}\.md$/));
@@ -506,7 +507,7 @@ function getFoodEntries(days) {
 // ── Profile parsing ──────────────────────────────────────────────────────────
 
 function getProfile() {
-  const dir = path.join(ROOT, "profile");
+  const dir = path.join(DATA_DIR, "profile");
   if (!fs.existsSync(dir)) return {};
 
   const result = {};
@@ -520,7 +521,7 @@ function getProfile() {
 // ── Plans parsing ────────────────────────────────────────────────────────────
 
 function getPlans() {
-  const dir = path.join(ROOT, "training", "programs");
+  const dir = path.join(DATA_DIR, "training", "programs");
   if (!fs.existsSync(dir)) return [];
 
   const files = fs.readdirSync(dir)
@@ -581,14 +582,14 @@ const server = http.createServer((req, res) => {
   if (pathname === "/api/health-summaries") return json(res, getHealthSummaries());
   if (pathname === "/api/plans") return json(res, getPlans());
   if (pathname === "/api/weight") {
-    const fp = path.join(ROOT, "health", "weight.json");
+    const fp = path.join(DATA_DIR, "measurements", "weight.json");
     if (fs.existsSync(fp)) {
       try { return json(res, JSON.parse(fs.readFileSync(fp, "utf-8"))); } catch {}
     }
     return json(res, []);
   }
   if (pathname === "/api/focus") {
-    const fp = path.join(ROOT, "health", "focus.json");
+    const fp = path.join(DATA_DIR, "health", "focus.json");
     if (fs.existsSync(fp)) {
       try { return json(res, JSON.parse(fs.readFileSync(fp, "utf-8"))); } catch {}
     }
@@ -600,7 +601,7 @@ const server = http.createServer((req, res) => {
 
   // Food photos
   if (pathname.startsWith("/photos/food/")) {
-    const photoPath = path.join(ROOT, "food", "photos", pathname.replace("/photos/food/", ""));
+    const photoPath = path.join(DATA_DIR, "food", "photos", pathname.replace("/photos/food/", ""));
     const ext = path.extname(photoPath);
     if (fs.existsSync(photoPath)) {
       res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream" });

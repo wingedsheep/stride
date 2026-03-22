@@ -8,20 +8,20 @@ allowed-tools: Read, Write, Edit, Glob, Bash, Grep
 
 Update the focus points displayed on the dashboard Overview page.
 
-Focus points are stored in `health/focus.json` as a JSON array.
+Focus points are stored in `data/health/focus.json` as a JSON array.
 
 User input: $ARGUMENTS
 
 ## Process
 
-1. Read the current `health/focus.json`
+1. Read the current `data/health/focus.json`
 2. If the user specifies new focus points, update them directly
 3. If the user asks to derive focus points from recent data:
-   - Read the latest health summary in `health/`
-   - Read the latest plan in `training/programs/`
+   - Read the latest health summary in `data/health/summaries/`
+   - Read the latest plan in `data/training/programs/`
    - Read recent vitals and sleep trends
    - Identify the 3-5 most important current priorities
-4. Write the updated `health/focus.json`
+4. Write the updated `data/health/focus.json`
 
 ## Format
 
