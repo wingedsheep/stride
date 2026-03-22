@@ -1,5 +1,9 @@
 # Stride
 
+# List available commands
+default:
+    @just --list
+
 # Start the dashboard
 serve:
     node server.js
