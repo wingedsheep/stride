@@ -28,11 +28,53 @@ function extractMdString(content, label) {
 
 // ── Training log parsing ────────────────────────────────────────────────────
 
-function parseWeight(text) {
+// Exercise registry: canonical name, aliases, and whether it's unilateral (per-arm/per-leg)
+const EXERCISES = {
+  "Leg Press":       { aliases: ["leg press"], unilateral: false },
+  "Chest Press":     { aliases: ["chest press"], unilateral: false },
+  "Shoulder Press":  { aliases: ["shoulder press", "dumbbell shoulder press"], unilateral: "detect" },
+  "Lat Pulldown":    { aliases: ["lat pulldown"], unilateral: false },
+  "Leg Curl":        { aliases: ["leg curl", "seated leg curl"], unilateral: false },
+  "Leg Extension":   { aliases: ["leg extension"], unilateral: false },
+  "Bicep Curl":      { aliases: ["bicep curl machine", "bicep curl"], unilateral: false },
+  "Dumbbell Curls":  { aliases: ["dumbbell curls", "dumbbell curl"], unilateral: "detect" },
+  "Dumbbell Rows":   { aliases: ["dumbbell rows", "dumbbell row"], unilateral: "detect" },
+  "Push-ups":        { aliases: ["push-ups", "push ups", "pushups"], unilateral: false },
+  "Goblet Squats":   { aliases: ["goblet squats", "goblet squat"], unilateral: false },
+  "Lunges":          { aliases: ["lunges", "lunge"], unilateral: "detect" },
+  "Plank":           { aliases: ["plank"], unilateral: false },
+  "Hanging Crunches": { aliases: ["hanging crunches", "hanging crunch"], unilateral: false },
+};
+
+// Exercises tracked in progression charts
+const TRACKED_EXERCISES = ["Leg Press", "Chest Press", "Shoulder Press", "Lat Pulldown", "Leg Curl", "Leg Extension"];
+
+function canonicalize(name) {
+  const lower = name.toLowerCase();
+  for (const [canonical, def] of Object.entries(EXERCISES)) {
+    if (def.aliases.some((a) => lower.includes(a))) return canonical;
+  }
+  return name;
+}
+
+function isUnilateral(canonicalName, rawText, sessionTitle) {
+  const def = EXERCISES[canonicalName];
+  if (!def) return false;
+  if (def.unilateral === true) return true;
+  if (def.unilateral === false) return false;
+  // "detect": check raw text and session title for unilateral signals
+  const context = rawText + " " + (sessionTitle || "");
+  return /per\s*(arm|hand|leg|kant|zijde)/i.test(context)
+      || /\bdb\b|dumbbell/i.test(context);
+}
+
+function parseWeight(text, unilateral) {
   const weights = [];
   const matches = text.matchAll(/([\d.]+)\s*kg/g);
   for (const m of matches) weights.push(parseFloat(m[1]));
-  return weights.length ? Math.max(...weights) : null;
+  if (!weights.length) return null;
+  const max = Math.max(...weights);
+  return unilateral ? max * 2 : max;
 }
 
 function parseSetsReps(text) {
@@ -76,9 +118,11 @@ function parseTrainingLog(filepath) {
       const [namePart, ...rest] = text.split(":");
       const detail = rest.join(":").trim();
       const name = namePart.trim();
+      const canonical = canonicalize(name);
+      const unilateral = isUnilateral(canonical, text, title);
       exercises.push({
-        name, raw: text,
-        maxWeight: parseWeight(detail || text),
+        name, canonical, raw: text, unilateral,
+        maxWeight: parseWeight(detail || text, unilateral),
         setsReps: parseSetsReps(detail || text),
       });
     } else if (inNotes && line.trim()) {
@@ -88,46 +132,24 @@ function parseTrainingLog(filepath) {
   return { date, title, exercises, notes };
 }
 
-const EXERCISE_ALIASES = {
-  "leg press": "Leg Press", "chest press": "Chest Press",
-  "shoulder press": "Shoulder Press", "lat pulldown": "Lat Pulldown",
-  "leg curl": "Leg Curl", "leg extension": "Leg Extension",
-  "bicep curl machine": "Bicep Curl", "bicep curl": "Bicep Curl",
-  "dumbbell curls": "Dumbbell Curls", "dumbbell rows": "Dumbbell Rows",
-  "push-ups": "Push-ups", "goblet squats": "Goblet Squats",
-  "lunges": "Lunges", "plank": "Plank", "hanging crunches": "Hanging Crunches",
-};
-
-function canonicalize(name) {
-  const lower = name.toLowerCase();
-  for (const [key, val] of Object.entries(EXERCISE_ALIASES)) {
-    if (lower.includes(key)) return val;
-  }
-  return name;
-}
-
 function getSessions() {
   if (!fs.existsSync(LOG_DIR)) return [];
   const files = fs.readdirSync(LOG_DIR).filter((f) => f.match(/^\d{4}-\d{2}-\d{2}.*\.md$/));
   const sessions = [];
   for (const file of files) {
     const parsed = parseTrainingLog(path.join(LOG_DIR, file));
-    if (parsed) {
-      parsed.exercises = parsed.exercises.map((e) => ({ ...e, canonical: canonicalize(e.name) }));
-      sessions.push(parsed);
-    }
+    if (parsed) sessions.push(parsed);
   }
   sessions.sort((a, b) => a.date.localeCompare(b.date));
   return sessions;
 }
 
 function getProgression(sessions) {
-  const tracked = ["Leg Press", "Chest Press", "Shoulder Press", "Lat Pulldown", "Leg Curl", "Leg Extension"];
   const progression = {};
-  for (const name of tracked) progression[name] = [];
+  for (const name of TRACKED_EXERCISES) progression[name] = [];
   for (const session of sessions) {
     for (const ex of session.exercises) {
-      if (tracked.includes(ex.canonical) && ex.maxWeight) {
+      if (TRACKED_EXERCISES.includes(ex.canonical) && ex.maxWeight) {
         progression[ex.canonical].push({ date: session.date, weight: ex.maxWeight });
       }
     }
@@ -392,10 +414,7 @@ function getSessionDetail(dateStr) {
     const files = fs.readdirSync(LOG_DIR).filter((f) => f.startsWith(dateStr) && f.endsWith(".md"));
     for (const f of files) {
       const parsed = parseTrainingLog(path.join(LOG_DIR, f));
-      if (parsed) {
-        parsed.exercises = parsed.exercises.map((e) => ({ ...e, canonical: canonicalize(e.name) }));
-        trainingNotes.push(parsed);
-      }
+      if (parsed) trainingNotes.push(parsed);
     }
   }
 
