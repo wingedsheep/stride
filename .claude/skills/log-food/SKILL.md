@@ -31,6 +31,29 @@ What was eaten: $ARGUMENTS
 - <if mentioned>
 ```
 
+## Estimated macros
+
+Only add this section when the user explicitly asks for macro estimates or a calorie breakdown. This section is parsed by the dashboard to render inline charts.
+
+**Required format** (the dashboard parses these exact patterns):
+
+```markdown
+## Geschatte macro's
+
+~<total> kcal totaal
+- Eiwit: <g>g (<pct>%)
+- Koolhydraten: <g>g (<pct>%)
+- Vet: <g>g (<pct>%)
+
+<Meal1>: <kcal> kcal | <Meal2>: <kcal> kcal | <Meal3>: <kcal> kcal
+```
+
+- Estimate per ingredient, then sum per meal
+- Use kcal conversion: protein 4 kcal/g, carbs 4 kcal/g, fat 9 kcal/g
+- The per-meal kcal line enables a stacked bar chart in the dashboard
+- Don't obsess over precision — reasonable estimates are fine
+- If only a single meal is logged and the day isn't complete, skip the macro section
+
 ## Guidelines
 - Keep entries concise but specific enough to be useful later ("salmon teriyaki with rice and steamed broccoli" not just "fish")
 - If the user doesn't specify the meal type, assume dinner (most common)

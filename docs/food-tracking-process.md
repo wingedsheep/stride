@@ -28,6 +28,29 @@ If the file already exists for that day, append to it rather than overwriting.
 - Note if a meal was particularly quick/easy (useful for suggesting fallback meals later)
 - Note if something was new or a variation on a regular meal
 
+### Estimated macros
+
+Only add this section when the user explicitly asks for macro estimates or a calorie breakdown. The dashboard Food tab parses this to render inline donut and bar charts.
+
+**Required format** (exact patterns are parsed by `parseFoodMacros()` in `web/app.js`):
+
+```markdown
+## Geschatte macro's
+
+~1830 kcal totaal
+- Eiwit: 104g (23%)
+- Koolhydraten: 163g (36%)
+- Vet: 79g (39%)
+
+Ontbijt: 340 kcal | Lunch: 980 kcal | Avondeten: 500 kcal
+```
+
+- Estimate per ingredient, sum per meal
+- Conversions: protein 4 kcal/g, carbs 4 kcal/g, fat 9 kcal/g
+- The per-meal kcal line (pipe-separated) enables a bar chart breakdown
+- Place before `## Supplementen` if that section exists
+- Skip if only one meal is logged and day isn't complete
+
 ## Suggesting Recipes
 
 When the user asks "what should I eat" / "suggest dinner" / "recipe ideas":

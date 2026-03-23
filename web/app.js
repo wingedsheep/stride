@@ -864,91 +864,149 @@ async function renderRecovery(days = 14) {
     options: { ...durOpts, scales: { ...durOpts.scales, y: { ...durOpts.scales.y, min: 0 } } },
   }));
 
-  // Score chart
+  // Score chart — bars for daily + line for rolling avg
   destroyChart("sleep-score");
   const scoreOpts = baseOpts("score");
   const scoreFiltered = sleepData.filter((d) => d.score);
-  const scoreDatasets = [
-    makeDataset(scoreFiltered.map((d) => ({ x: d.date, y: d.score })), PALETTE.sea + "50", { label: "Daily", borderWidth: 1.5, pointRadius: scoreFiltered.length > 60 ? 0 : 2, fill: false, order: 1 }),
-  ];
-  if (showRolling) {
-    scoreDatasets.push(makeRollingDataset(scoreFiltered.map((d) => d.date), scoreFiltered.map((d) => d.score), w, PALETTE.sea));
+  const scoreDatasets = [{
+    type: "bar", label: "Daily",
+    data: scoreFiltered.map((d) => d.score),
+    backgroundColor: scoreFiltered.map((d) => d.score >= 80 ? PALETTE.olive + "70" : d.score >= 60 ? PALETTE.clay + "50" : PALETTE.terracotta + "40"),
+    borderRadius: 3, borderSkipped: false, order: 1,
+  }];
+  if (showRolling && scoreFiltered.length > w) {
+    const rolled = rollingAvg(scoreFiltered.map((d) => d.score), w);
+    scoreDatasets.push({
+      type: "line", label: `${w}d avg`,
+      data: rolled,
+      borderColor: PALETTE.sea, borderWidth: 2.5,
+      pointRadius: 0, pointHoverRadius: 4,
+      fill: false, tension: 0.35, order: 0,
+      _rollingValues: rolled,
+    });
     scoreOpts.plugins.legend = legendWithRolling;
   }
   registerChart("sleep-score", new Chart(document.getElementById("sleep-score-chart"), {
-    type: "line",
-    data: { datasets: scoreDatasets },
+    type: "bar",
+    data: { labels: scoreFiltered.map((d) => d.date), datasets: scoreDatasets },
     options: { ...scoreOpts, scales: { ...scoreOpts.scales, y: { ...scoreOpts.scales.y, min: 0, max: 100 } } },
   }));
 
-  // Body battery chart — rolling avg of the peak value
+  // Body battery chart — bars for peak + line for rolling avg
   destroyChart("bb");
   const bbData = vitalsData.filter((d) => d.bodyBattery);
   const bbOpts = baseOpts("battery");
-  const bbDatasets = [
-    makeDataset(bbData.map((d) => ({ x: d.date, y: d.bodyBattery.max })), PALETTE.olive + "50", { label: "Peak", borderWidth: 1.5, pointRadius: bbData.length > 60 ? 0 : 2, fill: false, order: 1 }),
-    makeDataset(bbData.map((d) => ({ x: d.date, y: d.bodyBattery.min })), PALETTE.terracotta + "50", { label: "Low", borderWidth: 1.5, pointRadius: 0, fill: false, order: 1 }),
-  ];
-  if (showRolling) {
-    bbDatasets.push(makeRollingDataset(bbData.map((d) => d.date), bbData.map((d) => d.bodyBattery.max), w, PALETTE.olive));
+  const bbDatasets = [{
+    type: "bar", label: "Peak",
+    data: bbData.map((d) => d.bodyBattery.max),
+    backgroundColor: bbData.map((d) => d.bodyBattery.max >= 80 ? PALETTE.olive + "70" : d.bodyBattery.max >= 50 ? PALETTE.clay + "50" : PALETTE.terracotta + "40"),
+    borderRadius: 3, borderSkipped: false, order: 2,
+  }];
+  if (showRolling && bbData.length > w) {
+    const rolled = rollingAvg(bbData.map((d) => d.bodyBattery.max), w);
+    bbDatasets.push({
+      type: "line", label: `${w}d avg`,
+      data: rolled,
+      borderColor: PALETTE.olive, borderWidth: 2.5,
+      pointRadius: 0, pointHoverRadius: 4,
+      fill: false, tension: 0.35, order: 0,
+      _rollingValues: rolled,
+    });
   }
   bbOpts.plugins.legend = legendWithRolling;
   registerChart("bb", new Chart(document.getElementById("bb-chart"), {
-    type: "line",
-    data: { datasets: bbDatasets },
+    type: "bar",
+    data: { labels: bbData.map((d) => d.date), datasets: bbDatasets },
     options: { ...bbOpts, scales: { ...bbOpts.scales, y: { ...bbOpts.scales.y, min: 0, max: 100 } } },
   }));
 
-  // HRV chart
+  // HRV chart — bars for daily + line for rolling avg
   destroyChart("recovery-hrv");
   const hrvFiltered = vitalsData.filter((d) => d.hrvNight);
   const hrvOpts = baseOpts("ms", (v) => v + " ms");
-  const hrvDatasets = [
-    makeDataset(hrvFiltered.map((d) => ({ x: d.date, y: d.hrvNight })), PALETTE.olive + "50", { label: "Daily", borderWidth: 1.5, pointRadius: hrvFiltered.length > 60 ? 0 : 2, fill: false, order: 1 }),
-  ];
-  if (showRolling) {
-    hrvDatasets.push(makeRollingDataset(hrvFiltered.map((d) => d.date), hrvFiltered.map((d) => d.hrvNight), w, PALETTE.olive));
+  const hrvMedian = hrvFiltered.length ? [...hrvFiltered.map((d) => d.hrvNight)].sort((a, b) => a - b)[Math.floor(hrvFiltered.length / 2)] : 50;
+  const hrvDatasets = [{
+    type: "bar", label: "Daily",
+    data: hrvFiltered.map((d) => d.hrvNight),
+    backgroundColor: hrvFiltered.map((d) => d.hrvNight >= hrvMedian ? PALETTE.olive + "70" : d.hrvNight >= hrvMedian * 0.8 ? PALETTE.clay + "50" : PALETTE.terracotta + "40"),
+    borderRadius: 3, borderSkipped: false, order: 1,
+  }];
+  if (showRolling && hrvFiltered.length > w) {
+    const rolled = rollingAvg(hrvFiltered.map((d) => d.hrvNight), w);
+    hrvDatasets.push({
+      type: "line", label: `${w}d avg`,
+      data: rolled,
+      borderColor: PALETTE.olive, borderWidth: 2.5,
+      pointRadius: 0, pointHoverRadius: 4,
+      fill: false, tension: 0.35, order: 0,
+      _rollingValues: rolled,
+    });
     hrvOpts.plugins.legend = legendWithRolling;
   }
   registerChart("recovery-hrv", new Chart(document.getElementById("recovery-hrv-chart"), {
-    type: "line",
-    data: { datasets: hrvDatasets },
-    options: hrvOpts,
+    type: "bar",
+    data: { labels: hrvFiltered.map((d) => d.date), datasets: hrvDatasets },
+    options: { ...hrvOpts, scales: { ...hrvOpts.scales, y: { ...hrvOpts.scales.y, min: 0 } } },
   }));
 
-  // Resting HR
+  // Resting HR — bars for daily + line for rolling avg (lower is better)
   destroyChart("rhr");
   const rhrFiltered = vitalsData.filter((d) => d.restingHR);
   const rhrOpts = baseOpts("bpm", (v) => v + " bpm");
-  const rhrDatasets = [
-    makeDataset(rhrFiltered.map((d) => ({ x: d.date, y: d.restingHR })), PALETTE.terracotta + "50", { label: "Daily", borderWidth: 1.5, pointRadius: rhrFiltered.length > 60 ? 0 : 2, fill: false, order: 1 }),
-  ];
-  if (showRolling) {
-    rhrDatasets.push(makeRollingDataset(rhrFiltered.map((d) => d.date), rhrFiltered.map((d) => d.restingHR), w, PALETTE.terracotta));
+  const rhrMedian = rhrFiltered.length ? [...rhrFiltered.map((d) => d.restingHR)].sort((a, b) => a - b)[Math.floor(rhrFiltered.length / 2)] : 60;
+  const rhrDatasets = [{
+    type: "bar", label: "Daily",
+    data: rhrFiltered.map((d) => d.restingHR),
+    backgroundColor: rhrFiltered.map((d) => d.restingHR <= rhrMedian ? PALETTE.olive + "70" : d.restingHR <= rhrMedian * 1.1 ? PALETTE.clay + "50" : PALETTE.terracotta + "40"),
+    borderRadius: 3, borderSkipped: false, order: 1,
+  }];
+  if (showRolling && rhrFiltered.length > w) {
+    const rolled = rollingAvg(rhrFiltered.map((d) => d.restingHR), w);
+    rhrDatasets.push({
+      type: "line", label: `${w}d avg`,
+      data: rolled,
+      borderColor: PALETTE.terracotta, borderWidth: 2.5,
+      pointRadius: 0, pointHoverRadius: 4,
+      fill: false, tension: 0.35, order: 0,
+      _rollingValues: rolled,
+    });
     rhrOpts.plugins.legend = legendWithRolling;
   }
   registerChart("rhr", new Chart(document.getElementById("rhr-chart"), {
-    type: "line",
-    data: { datasets: rhrDatasets },
+    type: "bar",
+    data: { labels: rhrFiltered.map((d) => d.date), datasets: rhrDatasets },
     options: rhrOpts,
   }));
 
-  // Stress — rolling average
+  // Stress — bars for daily + line for rolling avg (lower is better)
   destroyChart("stress");
   const stressFiltered = vitalsData.filter((d) => d.avgStress);
   const stressOpts = baseOpts("stress");
-  const stressDatasets = [
-    makeDataset(stressFiltered.map((d) => ({ x: d.date, y: d.avgStress })), PALETTE.terracotta + "40", { label: "Daily", borderWidth: 1, pointRadius: 0, fill: false, order: 1 }),
-  ];
-  stressDatasets.push(makeRollingDataset(stressFiltered.map((d) => d.date), stressFiltered.map((d) => d.avgStress), w, PALETTE.terracotta));
+  const stressMedian = stressFiltered.length ? [...stressFiltered.map((d) => d.avgStress)].sort((a, b) => a - b)[Math.floor(stressFiltered.length / 2)] : 30;
+  const stressDatasets = [{
+    type: "bar", label: "Daily",
+    data: stressFiltered.map((d) => d.avgStress),
+    backgroundColor: stressFiltered.map((d) => d.avgStress <= stressMedian ? PALETTE.olive + "70" : d.avgStress <= stressMedian * 1.2 ? PALETTE.clay + "50" : PALETTE.terracotta + "40"),
+    borderRadius: 3, borderSkipped: false, order: 1,
+  }];
+  if (stressFiltered.length > w) {
+    const rolled = rollingAvg(stressFiltered.map((d) => d.avgStress), w);
+    stressDatasets.push({
+      type: "line", label: `${w}d avg`,
+      data: rolled,
+      borderColor: PALETTE.terracotta, borderWidth: 2.5,
+      pointRadius: 0, pointHoverRadius: 4,
+      fill: false, tension: 0.35, order: 0,
+      _rollingValues: rolled,
+    });
+  }
   stressOpts.plugins.legend = legendWithRolling;
   const stressMax = stressFiltered.length ? Math.max(...stressFiltered.map((d) => d.avgStress)) : 50;
-  const stressMin = stressFiltered.length ? Math.min(...stressFiltered.map((d) => d.avgStress)) : 0;
-  const stressPad = Math.max(5, (stressMax - stressMin) * 0.15);
+  const stressPad = stressMax * 0.08;
   registerChart("stress", new Chart(document.getElementById("stress-chart"), {
-    type: "line",
-    data: { datasets: stressDatasets },
-    options: { ...stressOpts, scales: { ...stressOpts.scales, y: { ...stressOpts.scales.y, min: Math.max(0, Math.floor(stressMin - stressPad)), max: Math.ceil(stressMax + stressPad) } } },
+    type: "bar",
+    data: { labels: stressFiltered.map((d) => d.date), datasets: stressDatasets },
+    options: { ...stressOpts, scales: { ...stressOpts.scales, y: { ...stressOpts.scales.y, min: 0, max: Math.ceil(stressMax + stressPad) } } },
   }));
 
   // Stages chart
@@ -973,55 +1031,115 @@ async function renderRecovery(days = 14) {
     },
     options: stagesOpts,
   }));
+
+  renderWeight(days);
+}
+
+// Interpolate sparse measurements onto a daily date grid
+function interpolateDaily(sparseData, dateKey, valueKey, startDate, endDate) {
+  if (!sparseData.length) return [];
+  const points = sparseData.map((d) => ({ t: new Date(d[dateKey]).getTime(), v: d[valueKey] })).filter((p) => p.v != null);
+  if (!points.length) return [];
+  const result = [];
+  const start = new Date(startDate).getTime();
+  const end = new Date(endDate).getTime();
+  const DAY = 86400000;
+  for (let t = start; t <= end; t += DAY) {
+    const dateStr = new Date(t).toISOString().slice(0, 10);
+    const exact = points.find((p) => p.t === t);
+    if (exact) { result.push({ date: dateStr, value: exact.v, measured: true }); continue; }
+    // Find surrounding points
+    let before = null, after = null;
+    for (const p of points) {
+      if (p.t <= t && (!before || p.t > before.t)) before = p;
+      if (p.t >= t && (!after || p.t < after.t)) after = p;
+    }
+    if (before && after && before.t !== after.t) {
+      const ratio = (t - before.t) / (after.t - before.t);
+      result.push({ date: dateStr, value: Math.round((before.v + ratio * (after.v - before.v)) * 10) / 10, measured: false });
+    } else if (before) {
+      result.push({ date: dateStr, value: before.v, measured: false });
+    } else if (after) {
+      result.push({ date: dateStr, value: after.v, measured: false });
+    }
+  }
+  return result;
 }
 
 // Weight & body fat charts (inside Recovery)
-async function renderWeight() {
-  const data = await fetch("/api/weight").then((r) => r.json());
-  if (!data.length) return;
+let _weightDataCache = null;
+async function renderWeight(days = 365) {
+  if (!_weightDataCache) {
+    _weightDataCache = await fetch("/api/weight").then((r) => r.json());
+  }
+  const allData = _weightDataCache;
+  if (!allData.length) return;
 
-  const labels = data.map((d) => d.date);
-  const weights = data.map((d) => d.weight);
-  const bodyFats = data.map((d) => d.bodyFat);
+  const endDate = new Date().toISOString().slice(0, 10);
+  const startDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 
-  const latest = data[data.length - 1];
-  const first = data[0];
+  const weightInterp = interpolateDaily(allData, "date", "weight", startDate, endDate);
+  const bfInterp = interpolateDaily(allData, "date", "bodyFat", startDate, endDate);
+
+  const timeUnit = days <= 30 ? "day" : days <= 90 ? "week" : "month";
 
   // Weight chart
   destroyChart("weight");
-  const weightOpts = baseOpts("kg");
-  weightOpts.scales.y.min = Math.floor(Math.min(...weights) - 1);
-  weightOpts.scales.y.max = Math.ceil(Math.max(...weights) + 1);
-  weightOpts.scales.x.time.unit = "month";
-  registerChart("weight", new Chart(document.getElementById("weight-chart"), {
-    type: "line",
-    data: {
-      datasets: [makeDataset(
-        labels.map((l, i) => ({ x: l, y: weights[i] })),
-        "#4a7c8a",
-        { pointRadius: 4 }
-      )],
-    },
-    options: weightOpts,
-  }));
+  if (weightInterp.length) {
+    const weightOpts = baseOpts("kg");
+    const wValues = weightInterp.map((d) => d.value);
+    weightOpts.scales.y.min = Math.floor(Math.min(...wValues) - 1);
+    weightOpts.scales.y.max = Math.ceil(Math.max(...wValues) + 1);
+    weightOpts.scales.x.time.unit = timeUnit;
+    registerChart("weight", new Chart(document.getElementById("weight-chart"), {
+      type: "line",
+      data: {
+        datasets: [
+          // Interpolated line (full range)
+          makeDataset(
+            weightInterp.map((d) => ({ x: d.date, y: d.value })),
+            "#4a7c8a",
+            { pointRadius: 0, borderWidth: 2, fill: false, label: "Trend" }
+          ),
+          // Actual measurements as visible dots
+          makeDataset(
+            weightInterp.filter((d) => d.measured).map((d) => ({ x: d.date, y: d.value })),
+            "#4a7c8a",
+            { pointRadius: 4, borderWidth: 0, fill: false, showLine: false, label: "Measured" }
+          ),
+        ],
+      },
+      options: weightOpts,
+    }));
+  }
 
   // Body fat chart
   destroyChart("bodyfat");
-  const bfOpts = baseOpts("%");
-  bfOpts.scales.y.min = Math.floor(Math.min(...bodyFats) - 1);
-  bfOpts.scales.y.max = Math.ceil(Math.max(...bodyFats) + 1);
-  bfOpts.scales.x.time.unit = "month";
-  registerChart("bodyfat", new Chart(document.getElementById("bodyfat-chart"), {
-    type: "line",
-    data: {
-      datasets: [makeDataset(
-        labels.map((l, i) => ({ x: l, y: bodyFats[i] })),
-        "#a0826d",
-        { pointRadius: 4 }
-      )],
-    },
-    options: bfOpts,
-  }));
+  if (bfInterp.length) {
+    const bfOpts = baseOpts("%");
+    const bfValues = bfInterp.map((d) => d.value);
+    bfOpts.scales.y.min = Math.floor(Math.min(...bfValues) - 1);
+    bfOpts.scales.y.max = Math.ceil(Math.max(...bfValues) + 1);
+    bfOpts.scales.x.time.unit = timeUnit;
+    registerChart("bodyfat", new Chart(document.getElementById("bodyfat-chart"), {
+      type: "line",
+      data: {
+        datasets: [
+          makeDataset(
+            bfInterp.map((d) => ({ x: d.date, y: d.value })),
+            "#a0826d",
+            { pointRadius: 0, borderWidth: 2, fill: false, label: "Trend" }
+          ),
+          makeDataset(
+            bfInterp.filter((d) => d.measured).map((d) => ({ x: d.date, y: d.value })),
+            "#a0826d",
+            { pointRadius: 4, borderWidth: 0, fill: false, showLine: false, label: "Measured" }
+          ),
+        ],
+      },
+      options: bfOpts,
+    }));
+  }
 }
 
 // ── Steps ────────────────────────────────────────────────────────────────────
@@ -1613,6 +1731,115 @@ async function renderJournal(days) {
 
 // ── Food ─────────────────────────────────────────────────────────────────────
 
+function parseFoodMacros(content) {
+  const lines = content.split("\n");
+  const macros = {};
+
+  // Parse total kcal
+  const kcalMatch = content.match(/~?(\d+)\s*kcal\s*totaal/i);
+  if (kcalMatch) macros.kcal = parseInt(kcalMatch[1]);
+
+  // Parse macros: "Eiwit: 104g (23%)"
+  const proteinMatch = content.match(/Eiwit:\s*(\d+)g\s*\((\d+)%\)/i);
+  const carbsMatch = content.match(/Koolhydraten:\s*(\d+)g\s*\((\d+)%\)/i);
+  const fatMatch = content.match(/Vet:\s*(\d+)g\s*\((\d+)%\)/i);
+
+  if (proteinMatch) macros.protein = { g: parseInt(proteinMatch[1]), pct: parseInt(proteinMatch[2]) };
+  if (carbsMatch) macros.carbs = { g: parseInt(carbsMatch[1]), pct: parseInt(carbsMatch[2]) };
+  if (fatMatch) macros.fat = { g: parseInt(fatMatch[1]), pct: parseInt(fatMatch[2]) };
+
+  // Parse per-meal kcal: "Ontbijt: 340 kcal | Lunch: 980 kcal | Avondeten: 500 kcal"
+  const mealLine = content.match(/(.+:\s*\d+\s*kcal\s*\|.+)/);
+  if (mealLine) {
+    macros.meals = [];
+    mealLine[1].split("|").forEach((part) => {
+      const m = part.trim().match(/(.+?):\s*(\d+)\s*kcal/);
+      if (m) macros.meals.push({ name: m[1].trim(), kcal: parseInt(m[2]) });
+    });
+  }
+
+  return (macros.kcal && macros.protein && macros.carbs && macros.fat) ? macros : null;
+}
+
+function renderMacroCharts(container, macros, index) {
+  const chartHtml = document.createElement("div");
+  chartHtml.style.cssText = "margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border, #e0d8cf);";
+
+  const donutId = `macro-donut-${index}`;
+  const barId = `macro-bar-${index}`;
+  const hasMeals = macros.meals && macros.meals.length > 0;
+
+  chartHtml.innerHTML = `
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+      <strong style="font-size:1.3rem;">${macros.kcal}</strong>
+      <span style="color:var(--ink-muted);font-size:0.85rem;">kcal</span>
+      <span style="margin-left:auto;font-size:0.75rem;color:var(--ink-muted);">
+        <span style="color:${PALETTE.sea};">● ${macros.protein.g}g eiwit</span>
+        <span style="margin-left:0.5rem;color:${PALETTE.sand};">● ${macros.carbs.g}g koolh</span>
+        <span style="margin-left:0.5rem;color:${PALETTE.terracotta};">● ${macros.fat.g}g vet</span>
+      </span>
+    </div>
+    <div style="display:grid;grid-template-columns:${hasMeals ? '1fr 120px' : '120px'};gap:1rem;align-items:center;">
+      ${hasMeals ? `<div style="position:relative;height:${macros.meals.length * 40 + 40}px;"><canvas id="${barId}"></canvas></div>` : ''}
+      <div style="position:relative;height:120px;"><canvas id="${donutId}"></canvas></div>
+    </div>
+  `;
+  container.appendChild(chartHtml);
+
+  // Donut chart
+  new Chart(document.getElementById(donutId), {
+    type: "doughnut",
+    data: {
+      labels: ["Eiwit", "Koolhydraten", "Vet"],
+      datasets: [{
+        data: [macros.protein.g * 4, macros.carbs.g * 4, macros.fat.g * 9],
+        backgroundColor: [PALETTE.sea, PALETTE.sand, PALETTE.terracotta],
+        borderWidth: 0, spacing: 2,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: "60%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              return `${ctx.label}: ${Math.round(ctx.raw / total * 100)}%`;
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Stacked bar chart per meal
+  if (hasMeals) {
+    new Chart(document.getElementById(barId), {
+      type: "bar",
+      data: {
+        labels: macros.meals.map((m) => m.name),
+        datasets: [{
+          label: "kcal",
+          data: macros.meals.map((m) => m.kcal),
+          backgroundColor: macros.meals.map((_, i) =>
+            [PALETTE.olive, PALETTE.sea, PALETTE.clay, PALETTE.fig][i % 4] + "c0"
+          ),
+          borderRadius: 4,
+        }],
+      },
+      options: {
+        indexAxis: "y", responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: "var(--border, #e0d8cf)" }, ticks: { color: "var(--ink-muted)", font: { size: 10 } } },
+          y: { grid: { display: false }, ticks: { color: "var(--ink)", font: { size: 11 } } },
+        },
+      },
+    });
+  }
+}
+
 async function renderFood(days) {
   const entries = await fetch(`/api/food?days=${days || 30}`).then((r) => r.json());
   const container = document.getElementById("food-list");
@@ -1638,6 +1865,10 @@ async function renderFood(days) {
     const items = entry.content.split("\n").filter((l) => l.match(/^- /)).slice(0, 3);
     const preview = items.map((l) => l.replace(/^- /, "")).join(" · ");
 
+    // Strip macro section from rendered markdown (it'll be rendered as charts)
+    const macros = parseFoodMacros(entry.content);
+    const contentWithoutMacros = entry.content.replace(/## Geschatte macro's[\s\S]*?(?=## |\s*$)/, "").trim();
+
     el.innerHTML = `
       <div class="report-date">${formatDate(entry.date)}</div>
       <div class="report-card">
@@ -1649,11 +1880,20 @@ async function renderFood(days) {
           ${isFirst ? "Hide details" : "Show details"}
         </button>
         <div class="report-body plan-body ${isFirst ? "" : "collapsed"}" id="${bodyId}">
-          ${journalMdToHtml(entry.content)}
+          ${journalMdToHtml(contentWithoutMacros)}
+          <div id="food-macros-${i}"></div>
         </div>
       </div>
     `;
     timeline.appendChild(el);
+
+    if (macros) {
+      // Render charts after DOM is ready
+      requestAnimationFrame(() => {
+        const macroContainer = document.getElementById(`food-macros-${i}`);
+        if (macroContainer) renderMacroCharts(macroContainer, macros, i);
+      });
+    }
   });
 
   timeline.querySelectorAll(".report-toggle").forEach((btn) => {
@@ -1763,4 +2003,3 @@ renderPlans();
 renderJournal(30);
 renderFood(30);
 renderProfile();
-renderWeight();

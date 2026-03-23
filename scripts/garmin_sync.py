@@ -23,16 +23,28 @@ ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 
 
+TOKEN_DIR = ROOT / ".garmin-tokens"
+
+
 def get_client() -> Garmin:
-    """Authenticate with Garmin Connect."""
+    """Authenticate with Garmin Connect, using cached tokens when possible."""
     email = os.getenv("GARMIN_EMAIL")
     password = os.getenv("GARMIN_PASSWORD")
     if not email or not password:
         print("Error: Set GARMIN_EMAIL and GARMIN_PASSWORD in .env")
         sys.exit(1)
 
+    TOKEN_DIR.mkdir(exist_ok=True)
     client = Garmin(email, password)
-    client.login()
+
+    # Try cached tokens first, fall back to fresh login
+    token_file = TOKEN_DIR / "oauth1_token.json"
+    if token_file.exists():
+        client.login(tokenstore=str(TOKEN_DIR))
+    else:
+        client.login()
+        client.garth.dump(str(TOKEN_DIR))
+
     return client
 
 
